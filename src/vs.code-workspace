@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "usyd_learning"
+		},
+		{
+			"path": "unit_test"
+		},
+		{
+			"path": "test"
+		},
+		{
+			"path": "unittest_ml"
+		}
+	]
+}
