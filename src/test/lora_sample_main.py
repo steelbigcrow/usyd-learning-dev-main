@@ -16,13 +16,27 @@ g_app = SampleAppEntry()
 
 def main():
     # Load app config set from yaml file
-    g_app.load_app_config("./fl_lora_sample/convergence_experiment/kmnist/rbla_r001_epoch1.yaml")
+    # g_app.load_app_config("./fl_lora_sample/convergence_experiment/finished_kmnist/rbla_r001_epoch1.yaml")
+    g_app.load_app_config("./fl_lora_sample/convergence_experiment/adalora_kmnist/adalora_r1_round300_epoch1.yaml")
+    # g_app.load_app_config("./fl_lora_sample/convergence_experiment/mnist_fedavg_cuda_config.yaml")
 
     # Get training rounds
     training_rounds = g_app.training_rounds
 
+    # Select device dynamically: prefer CUDA, then MPS, else CPU
+    try:
+        import torch
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
+    except Exception:
+        device = "cpu"
+
     # Run app
-    g_app.run("mps",training_rounds)
+    g_app.run(device, training_rounds)
     return
 
 if __name__ == "__main__":

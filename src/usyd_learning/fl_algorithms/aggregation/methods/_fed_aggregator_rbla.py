@@ -77,9 +77,18 @@ class FedAggregator_RBLA(AbstractFedAggregator):
                             "or dict {'state_dicts': [...], 'weights': [...]}.")
 
         console.debug(f"\n[RBLA] Aggregating {len(state_dicts)} clients...")
-        total_data_vol = sum(vol for _, vol in self._aggregation_data_dict)
-        for i, (_, vol) in enumerate(self._aggregation_data_dict):
-            console.debug(f"  Client {i}: {vol} samples ({vol / total_data_vol * 100:.1f}%)")
+        # Pretty-print client weights/volumes depending on input form
+        try:
+            if isinstance(getattr(self, "_aggregation_data_dict", None), list):
+                total_data_vol = sum(vol for _, vol in self._aggregation_data_dict)
+                for i, (_, vol) in enumerate(self._aggregation_data_dict):
+                    console.debug(f"  Client {i}: {vol} samples ({(vol / total_data_vol * 100) if total_data_vol else 0:.1f}%)")
+            elif weights is not None:
+                total_w = sum(weights)
+                for i, w in enumerate(weights):
+                    console.debug(f"  Client {i}: weight={w:.4f} ({(w / total_w * 100) if total_w else 0:.1f}%)")
+        except Exception:
+            pass
 
         # move to device
         dev = self._device
@@ -208,22 +217,48 @@ class FedAggregator_RBLA(AbstractFedAggregator):
     @staticmethod
     def broadcast_lora_state_dict(global_sd: dict, local_sd: dict, lora_suffixes: set[str] = {"lora_A", "lora_B"}) -> dict:
         """
-        Slice global LoRA matrices back to each client rank, copy non-LoRA tensors directly.
+        Slice or pad global LoRA matrices back to each client's local rank, copy non-LoRA tensors directly.
         """
         new_local_sd = {}
         for key, local_tensor in local_sd.items():
+            if key not in global_sd:
+                # fallback: keep local
+                new_local_sd[key] = local_tensor.clone() if torch.is_tensor(local_tensor) else local_tensor
+                continue
+
             global_tensor = global_sd[key]
-            suffix = FedAggregator_RBLA.get_suffix(key)
+
+            # Robust suffix detection: accept keys like '*.lora_A.default'
+            raw_suffix = FedAggregator_RBLA.get_suffix(key)
+            suffix = raw_suffix
+            if raw_suffix not in lora_suffixes:
+                if ".lora_A" in key:
+                    suffix = "lora_A"
+                elif ".lora_B" in key:
+                    suffix = "lora_B"
 
             if suffix not in lora_suffixes:
-                new_local_sd[key] = global_tensor.clone()
+                new_local_sd[key] = global_tensor.clone() if torch.is_tensor(global_tensor) else global_tensor
             else:
                 if suffix == "lora_A":       # [r, in]
                     r_local = local_tensor.shape[0]
-                    new_local_sd[key] = global_tensor[:r_local, :].clone()
+                    r_global = global_tensor.shape[0]
+                    if r_global >= r_local:
+                        new_local_sd[key] = global_tensor[:r_local, :].clone()
+                    else:
+                        # pad zeros for missing rows
+                        pad = torch.zeros((r_local, global_tensor.shape[1]), dtype=global_tensor.dtype, device=global_tensor.device)
+                        pad[:r_global, :] = global_tensor
+                        new_local_sd[key] = pad
                 elif suffix == "lora_B":     # [out, r]
                     r_local = local_tensor.shape[1]
-                    new_local_sd[key] = global_tensor[:, :r_local].clone()
+                    r_global = global_tensor.shape[1]
+                    if r_global >= r_local:
+                        new_local_sd[key] = global_tensor[:, :r_local].clone()
+                    else:
+                        pad = torch.zeros((global_tensor.shape[0], r_local), dtype=global_tensor.dtype, device=global_tensor.device)
+                        pad[:, :r_global] = global_tensor
+                        new_local_sd[key] = pad
                 else:
-                    raise ValueError(f"Unrecognized LoRA suffix: {suffix}")
+                    new_local_sd[key] = global_tensor.clone() if torch.is_tensor(global_tensor) else global_tensor
         return new_local_sd

@@ -1,0 +1,26 @@
+trainer:
+  trainer_type: "adalora"
+  deivce: "cpu"
+  save_path: "./.training_results/"
+  # AdaLoRA configuration (fields forwarded to peft.AdaLoraConfig)
+  adalora:
+    # Base LoRA-style knobs
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    total_step: 1000
+    # Optional AdaLoRA extras (all optional; uncomment/tune as needed)
+    # init_r: 12
+    # tinit: 0
+    # tfinal: 0
+    # deltaT: 1
+    # beta1: 0.85
+    # beta2: 0.85
+    # orth_reg_weight: 0.5
+    # target_r: 8
+    # bias: "none"            # one of: none, all, lora_only
+    # inference_mode: false
+    # use_rslora: false
+    # use_dora: false
+    # rank_pattern: {}
+    # target_modules: ["linear1", "linear2"]

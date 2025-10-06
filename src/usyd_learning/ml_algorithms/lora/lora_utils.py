@@ -474,3 +474,88 @@ class LoRAUtils:
             else:
                 new_sd[k] = v1.clone().detach() if (clone and torch.is_tensor(v1)) else v1
         return new_sd
+
+    @staticmethod
+    def map_peft_to_lora_state_dict(
+        target_state_dict: dict,
+        peft_state_dict: dict,
+        *,
+        peft_base_prefix: str = "base_model.model",
+    ) -> OrderedDict:
+        """
+        Map a PEFT/AdaLoRA-style state_dict (keys like
+        "base_model.model.<prefix>.base_layer.weight" or
+        "base_model.model.<prefix>.lora_A.default") to a plain LoRA
+        state_dict expected by LoRA-enabled layers (keys like
+        "<prefix>.weight", "<prefix>.lora_A", etc.).
+
+        The returned OrderedDict follows the key order of the target_state_dict
+        and aligns tensor dtype/device to the tensors in target_state_dict.
+
+        Args:
+            target_state_dict: The destination model's state_dict that defines
+                               expected keys and acts as dtype/device template.
+            peft_state_dict:   The incoming aggregated weights following PEFT
+                               naming (e.g., from AdaLoRA-wrapped models).
+            peft_base_prefix:  The common prefix segment used by PEFT wrappers
+                               (default: "base_model.model").
+
+        Returns:
+            OrderedDict with keys matching target_state_dict and values taken
+            from peft_state_dict when mappable; otherwise retains the target
+            tensor (unchanged) for unmatched keys.
+        """
+        new_sd = OrderedDict()
+
+        def split_prefix_suffix(k: str) -> tuple[str, str]:
+            if "." in k:
+                p, s = k.rsplit(".", 1)
+            else:
+                p, s = k, ""
+            return p, s
+
+        def first_existing(*candidates: str) -> str | None:
+            for cand in candidates:
+                if cand in peft_state_dict:
+                    return cand
+            return None
+
+        for t_key, t_tensor in target_state_dict.items():
+            prefix, suffix = split_prefix_suffix(t_key)
+            mapped_val = None
+
+            # Construct common candidate paths found in PEFT/AdaLoRA models
+            base_prefix = f"{peft_base_prefix}.{prefix}" if peft_base_prefix else prefix
+
+            if suffix in ("weight", "bias"):
+                cand = first_existing(
+                    f"{base_prefix}.base_layer.{suffix}",  # PEFT-wrapped Linear base
+                    f"{base_prefix}.{suffix}",              # direct mapping fallback
+                    t_key,                                   # already matching
+                )
+                if cand is not None and cand in peft_state_dict:
+                    mapped_val = peft_state_dict[cand]
+
+            elif suffix in ("lora_A", "lora_B"):
+                cand = first_existing(
+                    f"{base_prefix}.base_layer.{suffix}",   # LoRA params on base_layer
+                    f"{base_prefix}.{suffix}.default",       # AdaLoRA adapter params
+                    f"{base_prefix}.{suffix}",               # direct mapping fallback
+                    t_key,                                    # already matching
+                )
+                if cand is not None and cand in peft_state_dict:
+                    mapped_val = peft_state_dict[cand]
+
+            # Fallback: if we didn't locate a source value, retain target tensor
+            if mapped_val is None:
+                new_sd[t_key] = t_tensor.clone().detach() if torch.is_tensor(t_tensor) else t_tensor
+                continue
+
+            # Align dtype/device to target tensor
+            if torch.is_tensor(t_tensor) and torch.is_tensor(mapped_val):
+                mapped_val = mapped_val.to(dtype=t_tensor.dtype, device=t_tensor.device)
+                new_sd[t_key] = mapped_val.clone().detach()
+            else:
+                new_sd[t_key] = mapped_val
+
+        return new_sd

@@ -71,14 +71,49 @@ class AbstractFedAggregator(ABC):
         self._clients_update = clients_update
         return self
 
-    def aggregate(self, client_data_dict):
+    def aggregate(self, client_data):
         """
-        Select clients from client list
+        Run aggregation on client updates.
 
-        Arg:
-            select_numbers(int): number of clients to be selected
+        Supports multiple input formats for backward compatibility:
+        - List[Dict]: [{"updated_weights": sd, "train_record": {"data_sample_num": vol}}, ...]
+        - List[Tuple]: [(sd, vol), ...] or [[sd, vol], ...]
+        - Dict legacy: {"state_dicts": [sd1, sd2, ...], "weights": [w1, w2, ...]}
         """
-        self._aggregation_data_dict: list = [(d["updated_weights"], d["train_record"]["data_sample_num"]) for d in client_data_dict]  # [[model_weight: dict / wbab, vol],[model_weight: dict / wbab, vol]]
+        # Reset any previous data containers
+        if hasattr(self, "_aggregation_data_list"):
+            delattr(self, "_aggregation_data_list")
+        self._aggregation_data_dict = None  # type: ignore
+
+        # Normalize inputs into the forms understood by concrete aggregators
+        if isinstance(client_data, list):
+            if len(client_data) == 0:
+                self._aggregation_data_dict = []
+            else:
+                first = client_data[0]
+                # Case 1: List[Dict]
+                if isinstance(first, dict) and "updated_weights" in first and "train_record" in first:
+                    self._aggregation_data_dict = [
+                        (d["updated_weights"], d["train_record"]["data_sample_num"]) for d in client_data  # type: ignore[index]
+                    ]
+                # Case 2: List[(sd, vol)]
+                elif isinstance(first, (list, tuple)) and len(first) == 2:
+                    self._aggregation_data_dict = client_data
+                else:
+                    raise TypeError(
+                        "Unsupported list format for aggregation. Expected list of dicts with "
+                        "'updated_weights' and 'train_record' or list of (state_dict, volume)."
+                    )
+
+        elif isinstance(client_data, dict):
+            # Legacy dict input: {"state_dicts": [...], "weights": [...]} or other prebuilt forms
+            self._aggregation_data_dict = client_data
+        else:
+            raise TypeError(
+                f"Unsupported aggregation input type: {type(client_data).__name__}. "
+                "Provide a list or a dict."
+            )
+
         self._before_aggregation()
         self._do_aggregation()
         self._after_aggregation()

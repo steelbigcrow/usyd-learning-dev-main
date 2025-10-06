@@ -183,3 +183,6 @@ cython_debug/
 
 # MacOS
 .ds_store
+
+# Agent
+AGENTS.md

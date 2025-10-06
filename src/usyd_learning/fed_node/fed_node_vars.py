@@ -318,8 +318,39 @@ class FedNodeVars(ObjectMap, EventHandler, KeyValueArgs):
         args = FedNodeEventArgs("training", self.config_dict).with_sender(self)
 
         # build trainer
-        trainer_args = ModelTrainerFactory.create_args(self.config_dict["trainer"])
-        trainer_args.set_trainer_args(self.model, self.optimizer, self.loss_func, self.data_loader, 'standard') #TODO: add trainer type to config
+        trainer_cfg = self.config_dict.get("trainer", {})
+        trainer_type = str(trainer_cfg.get("trainer_type", "standard")).lower()
+
+        # If AdaLoRA is requested, wrap the model with PEFT AdaLoRA before creating trainer/optimizer
+        if trainer_type == "adalora":
+            from ..ml_algorithms import AdaLoRAOptions, wrap_with_adalora
+            # Parse options from YAML: known base keys + pass-through extras
+            adalora_cfg = trainer_cfg.get("adalora", {})
+            base_keys = {"r", "lora_alpha", "lora_dropout", "target_modules", "total_step"}
+            extra_kwargs = {k: v for k, v in adalora_cfg.items() if k not in base_keys}
+            opts = AdaLoRAOptions(
+                r=int(adalora_cfg.get("r", 8)),
+                lora_alpha=int(adalora_cfg.get("lora_alpha", 16)),
+                lora_dropout=float(adalora_cfg.get("lora_dropout", 0.05)),
+                target_modules=adalora_cfg.get("target_modules", None),
+                total_step=int(adalora_cfg.get("total_step", 1000)),
+                extra_kwargs=extra_kwargs if len(extra_kwargs) > 0 else None,
+            )
+
+            # Wrap current model
+            self.model = wrap_with_adalora(self.model, opts)
+            self.model_weight = self.model.state_dict()
+
+            # Rebuild optimizer builder and optimizer to use PEFT trainable params
+            self.optimizer_builder = OptimizerBuilder(self.model.parameters(), self.config_dict)
+            self.optimizer = self.optimizer_builder.build()
+
+            # Ensure evaluator uses the wrapped model
+            if hasattr(self, "model_evaluator") and self.model_evaluator is not None:
+                self.model_evaluator.change_model(self.model, self.model_weight)
+
+        trainer_args = ModelTrainerFactory.create_args(self.config_dict.get("trainer", {}))
+        trainer_args.set_trainer_args(self.model, self.optimizer, self.loss_func, self.data_loader, trainer_type)
         self.trainer = ModelTrainerFactory.create(trainer_args)
 
         self.raise_event("on_prepare_trainer", args)

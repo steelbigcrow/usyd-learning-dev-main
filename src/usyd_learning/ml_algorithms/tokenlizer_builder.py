@@ -6,7 +6,6 @@ from typing import Callable, Any, Optional, Dict, List
 from ..ml_utils import Handlers
 from torch.nn.utils.rnn import pad_sequence
 #from transformers import AutoTokenizer
-from torchtext.vocab import build_vocab_from_iterator
 
 class TokenizerBuilder(Handlers):
     """
@@ -48,7 +47,11 @@ class TokenizerBuilder(Handlers):
     @staticmethod
     def build_vocab(data_set, tokenizer, min_freq=2, max_vocab=30000):
         from collections import Counter
-        from torchtext.vocab import Vocab
+        # Lazy import to avoid torchtext binary dependency unless actually used
+        try:
+            from torchtext.vocab import build_vocab_from_iterator, Vocab  # type: ignore
+        except Exception as e:
+            raise ImportError("torchtext is required for building vocab.") from e
         
         train_pairs = list(data_set)
 

@@ -5,7 +5,9 @@ from .model_extractor import ModelExtractor
 from .tokenlizer_builder import TokenizerBuilder
 
 from .metric_calculator import MetricCalculator
+from .adalora.peft_adalora import AdaLoRAOptions, wrap_with_adalora
 
 __all__ = ["LossFunctionBuilder", "OptimizerBuilder", "ModelExtractor", "MatrixApproximator",
            "LoRAArgs", "LoRALinear", "LoRAArgs", "LoRAParametrization", "MetricCalculator",
-           "MSLoRALayer", "MSEmbedding", "MSLoRALinear", "MSMergedLinear", "MSConv2d", "TokenizerBuilder"]
+           "MSLoRALayer", "MSEmbedding", "MSLoRALinear", "MSMergedLinear", "MSConv2d", "TokenizerBuilder",
+           "AdaLoRAOptions", "wrap_with_adalora"]
