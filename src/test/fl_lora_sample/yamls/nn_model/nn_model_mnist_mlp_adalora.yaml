@@ -1,0 +1,15 @@
+#-----------------------------
+# Define global NN Model and params for AdaLoRA MLP
+# Base model uses standard nn.Linear layers so that PEFT AdaLoRA
+# can inject adapters during training.
+#-----------------------------
+nn_model:
+  name: adalora_simple_mlp
+  input_dim: 784           # 28x28 KMNIST/MNIST
+  hidden_dim: 200
+  output_dim: 10
+  softmax_dim : 1
+
+  # Share model between nodes
+  share_model: False
+

@@ -42,6 +42,7 @@ yaml_folder_loss_func_files:
 yaml_folder_nn_model_files:
 - nn_model_mnist_mlp_lora.yaml: nn_model_mnist_mlp_lora
 - nn_model_cifar10_vit_lora.yaml: nn_model_cifar10_vit
+- nn_model_mnist_mlp_adalora.yaml: nn_model_mnist_mlp_adalora
 
 yaml_folder_lora_inference_files:
 - base_lora_inference.yaml: base_lora_inference_mode
@@ -107,7 +108,7 @@ yaml_combination:
   - general_round100
   - training_logger
   - dataset_loader_kmnist
-  - nn_model_mnist_mlp_lora
+  - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
   - training_epoch5
@@ -119,7 +120,7 @@ yaml_combination:
   - general_round100
   - training_logger
   - dataset_loader_kmnist
-  - nn_model_mnist_mlp_lora
+  - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
   - training_epoch5

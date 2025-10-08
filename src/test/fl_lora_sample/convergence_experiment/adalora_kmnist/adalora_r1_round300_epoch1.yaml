@@ -19,6 +19,7 @@ yaml_folder_rank_distribution_path: ../../yamls/rank_distribution
 yaml_folder_aggreation_files:
 - aggregation_rbla.yaml: aggregation_rbla
 - aggregation_sp.yaml: aggregation_sp
+- aggregation_zp.yaml: aggregation_zp
 
 yaml_folder_client_selection_files:
 - random.yaml: client_selection_random
@@ -42,6 +43,7 @@ yaml_folder_loss_func_files:
 yaml_folder_nn_model_files:
 - nn_model_mnist_mlp_lora.yaml: nn_model_mnist_mlp_lora
 - nn_model_cifar10_vit_lora.yaml: nn_model_cifar10_vit
+- nn_model_mnist_mlp_adalora.yaml: nn_model_mnist_mlp_adalora
 
 yaml_folder_lora_inference_files:
 - base_lora_inference.yaml: base_lora_inference_mode
@@ -107,7 +109,7 @@ yaml_combination:
   - general_round300
   - training_logger
   - dataset_loader_kmnist
-  - nn_model_mnist_mlp_lora
+  - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
   - training_epoch1
@@ -119,7 +121,7 @@ yaml_combination:
   - general_round300
   - training_logger
   - dataset_loader_kmnist
-  - nn_model_mnist_mlp_lora
+  - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
   - training_epoch1
@@ -127,6 +129,6 @@ yaml_combination:
   - trainer_adalora
   - client_selection_random
   - rbla_server_strategy
-  - aggregation_rbla
+  - aggregation_zp
   - rank_distribution_1_heterogeneous
   - base_lora_inference_mode

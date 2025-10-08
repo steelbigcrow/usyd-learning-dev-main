@@ -31,6 +31,10 @@ class FedAggregatorFactory:
                 from .methods._fed_aggregator_sp import FedAggregator_SP
                 print("Using Sum-Product aggregator")
                 return FedAggregator_SP(args)
+            case "zp" | "zeropad" | "zero_pad" | "zero-padding" | "zero_padding":
+                from .methods._fed_aggregator_zeropad import FedAggregator_ZeroPad
+                print("Using Zero-Pad (LoRA) aggregator")
+                return FedAggregator_ZeroPad(args)
             case _:
                 raise ValueError(f"Unsupported aggregation method: {args.method}")
         return

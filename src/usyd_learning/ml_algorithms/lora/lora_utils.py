@@ -521,6 +521,18 @@ class LoRAUtils:
             return None
 
         for t_key, t_tensor in target_state_dict.items():
+            # Fast path: if target key already exists in PEFT dict, copy directly
+            # This covers AdaLoRA keys such as '*.lora_A.default', '*.lora_B.default',
+            # '*.lora_E.default', and any rank hints like '*.ranknum'.
+            if t_key in peft_state_dict:
+                mapped_val_direct = peft_state_dict[t_key]
+                if torch.is_tensor(t_tensor) and torch.is_tensor(mapped_val_direct):
+                    mapped_val_direct = mapped_val_direct.to(dtype=t_tensor.dtype, device=t_tensor.device)
+                    new_sd[t_key] = mapped_val_direct.clone().detach()
+                else:
+                    new_sd[t_key] = mapped_val_direct
+                continue
+
             prefix, suffix = split_prefix_suffix(t_key)
             mapped_val = None
 
@@ -536,15 +548,25 @@ class LoRAUtils:
                 if cand is not None and cand in peft_state_dict:
                     mapped_val = peft_state_dict[cand]
 
-            elif suffix in ("lora_A", "lora_B"):
-                cand = first_existing(
-                    f"{base_prefix}.base_layer.{suffix}",   # LoRA params on base_layer
-                    f"{base_prefix}.{suffix}.default",       # AdaLoRA adapter params
-                    f"{base_prefix}.{suffix}",               # direct mapping fallback
-                    t_key,                                    # already matching
-                )
-                if cand is not None and cand in peft_state_dict:
-                    mapped_val = peft_state_dict[cand]
+            elif suffix in ("lora_A", "lora_B") or (".lora_A" in t_key) or (".lora_B" in t_key):
+                # Determine actual LoRA role (handles target keys that end with '.default')
+                role = None
+                if suffix in ("lora_A", "lora_B"):
+                    role = suffix
+                elif ".lora_A" in t_key:
+                    role = "lora_A"
+                elif ".lora_B" in t_key:
+                    role = "lora_B"
+
+                if role is not None:
+                    cand = first_existing(
+                        f"{base_prefix}.base_layer.{role}",   # LoRA params on base_layer
+                        f"{base_prefix}.{role}.default",       # AdaLoRA adapter params
+                        f"{base_prefix}.{role}",               # direct mapping fallback
+                        t_key,                                      # already matching
+                    )
+                    if cand is not None and cand in peft_state_dict:
+                        mapped_val = peft_state_dict[cand]
 
             # Fallback: if we didn't locate a source value, retain target tensor
             if mapped_val is None:

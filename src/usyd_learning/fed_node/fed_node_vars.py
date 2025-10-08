@@ -401,6 +401,13 @@ class FedNodeVars(ObjectMap, EventHandler, KeyValueArgs):
         return
 
     def prepare_global_inference_model(self):
+        # Minimal change: For AdaLoRA, keep evaluator on the PEFT-wrapped model
+        # to preserve adapters; do not rebuild a plain-base inference model.
+        trainer_cfg = self.config_dict.get("trainer", {})
+        trainer_type = str(trainer_cfg.get("trainer_type", "standard")).lower()
+        if trainer_type == "adalora":
+            return
+
         if "rank_distribution" in self.config_dict:
             from ..ml_algorithms.lora.lora_utils import LoRAUtils
 

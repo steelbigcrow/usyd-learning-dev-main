@@ -16,6 +16,9 @@ class NNModelFactory:
             case "mnist_nn_brenden":
                 from .models._nn_model_mnist_nn_brenden import NNModel_MnistNNBrenden
                 return NNModel_MnistNNBrenden().create_model(args)
+            case "adalora_simple_mlp":
+                from .adalora._nn_model_adalora_mlp import NNModel_AdaLoRAMLP
+                return NNModel_AdaLoRAMLP().create_model(args)
             case "simple_lora_mlp":
                 from .lora._nn_model_simple_lora_mlp import NNModel_SimpleLoRAMLP
                 return NNModel_SimpleLoRAMLP().create_model(args)
