@@ -23,6 +23,10 @@ class FedAggregatorFactory:
                 from .methods._fed_aggregator_fedavg import FedAggregator_FedAvg
                 print("Using FedAvg aggregator")
                 return FedAggregator_FedAvg(args)
+            case "svd":
+                from .methods._fed_aggregator_svd import FedAggregator_SVD
+                print("Using SVD (balanced sqrt) aggregator")
+                return FedAggregator_SVD(args)
             case "rbla":
                 from .methods._fed_aggregator_rbla import FedAggregator_RBLA
                 print("Using RBLA aggregator")

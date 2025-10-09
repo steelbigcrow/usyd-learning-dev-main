@@ -49,6 +49,10 @@ class StrategyFactory:
             case "sp":
                 from usyd_learning.fed_strategy.runner_strategy_impl._sp_runner_strategy import SpRunnerStrategy
                 return SpRunnerStrategy(runner, runner_strategy_args, client_nodes, server_node)
+            case "svd":
+                # SVD aggregation follows RBLA's overall message flow (broadcast via slice/pad)
+                from usyd_learning.fed_strategy.runner_strategy_impl._rbla_runner_strategy import RblaRunnerStrategy
+                return RblaRunnerStrategy(runner, runner_strategy_args, client_nodes, server_node)
             case "zp" | "zeropad" | "zero_pad" | "zero-padding" | "zero_padding":
                 # Zero-pad aggregation follows the same overall flow as RBLA
                 from usyd_learning.fed_strategy.runner_strategy_impl._rbla_runner_strategy import RblaRunnerStrategy
@@ -71,6 +75,10 @@ class StrategyFactory:
             case "sp":
                 from usyd_learning.fed_strategy.client_strategy_impl._sp_client import SpClientTrainingStrategy
                 return SpClientTrainingStrategy(client_strategy_args, client_node_input)
+            case "svd":
+                # Client only needs broadcast slice/pad behaviour identical to RBLA
+                from usyd_learning.fed_strategy.client_strategy_impl._rbla_client import RblaClientTrainingStrategy
+                return RblaClientTrainingStrategy(client_strategy_args, client_node_input)
             case "zp" | "zeropad" | "zero_pad" | "zero-padding" | "zero_padding":
                 # Zero-pad uses RBLA's client-side broadcast/slice behaviour
                 from usyd_learning.fed_strategy.client_strategy_impl._rbla_client import RblaClientTrainingStrategy
@@ -93,6 +101,9 @@ class StrategyFactory:
             case "sp":
                 from usyd_learning.fed_strategy.server_strategy_impl._sp_server import SpServerStrategy
                 return SpServerStrategy(server_strategy_args, serve_node_input)
+            case "svd":
+                from usyd_learning.fed_strategy.server_strategy_impl._svd_server import SvdServerStrategy
+                return SvdServerStrategy(server_strategy_args, serve_node_input)
             case "zp" | "zeropad" | "zero_pad" | "zero-padding" | "zero_padding":
                 # Zero-pad server strategy mirrors RBLA (same preprocessing + broadcast logic)
                 from usyd_learning.fed_strategy.server_strategy_impl._rbla_server import RblaServerStrategy

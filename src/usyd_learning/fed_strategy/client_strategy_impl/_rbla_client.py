@@ -114,5 +114,23 @@ class RblaClientTrainingStrategy(ClientStrategy):
         self._obj.node_var.cache_weight = global_weight
 
     def set_local_weight(self) -> dict:
-        self._obj.node_var.model_weight = FedAggregator_RBLA.broadcast_lora_state_dict(self._obj.node_var.cache_weight, self._obj.node_var.model_weight)
+        # Slice/pad global LoRA A/B to local ranks
+        new_local = FedAggregator_RBLA.broadcast_lora_state_dict(
+            self._obj.node_var.cache_weight,
+            self._obj.node_var.model_weight,
+        )
+
+        # If AdaLoRA is used locally, compensate for alpha/r scaling so that
+        # forward-time scaling restores the aggregated delta magnitude.
+        try:
+            trainer_cfg = self._obj.node_var.config_dict.get("trainer", {})
+            if str(trainer_cfg.get("trainer_type", "")).lower() == "adalora":
+                alpha = float(trainer_cfg.get("adalora", {}).get("lora_alpha", 1.0))
+                from usyd_learning.ml_algorithms.lora.lora_utils import LoRAUtils
+                new_local = LoRAUtils.compensate_for_adalora_scaling(new_local, lora_alpha=alpha)
+        except Exception:
+            # Best-effort compensation; ignore errors to avoid blocking broadcast
+            pass
+
+        self._obj.node_var.model_weight = new_local
         return

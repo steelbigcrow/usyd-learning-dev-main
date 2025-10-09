@@ -213,6 +213,84 @@ class LoRAUtils:
         return out
 
     @staticmethod
+    def compensate_for_adalora_scaling(
+        state_dict: "OrderedDict[str, torch.Tensor] | dict",
+        *,
+        lora_alpha: float,
+    ) -> "OrderedDict[str, torch.Tensor]":
+        """
+        Compensate AdaLoRA runtime scaling for lora_A/lora_B tensors in a state_dict by
+        dividing both A and B with sqrt(alpha / r_local) so that, during forward,
+        AdaLoRA's internal scaling (alpha/r_local) restores the intended delta magnitude.
+
+        This function is key-path tolerant: it detects keys containing '.lora_A' or
+        '.lora_B' anywhere (including PEFT-style keys like '*.lora_A.default').
+
+        Args:
+            state_dict: Mapping of parameter names to tensors (PEFT-shaped or plain LoRA).
+            lora_alpha: The AdaLoRA/LoRA alpha used for scaling inside modules.
+
+        Returns:
+            A cloned OrderedDict with compensated lora_A/lora_B tensors.
+        """
+        from collections import OrderedDict as _OD
+        out = _OD()
+
+        # Per-layer prefix bookkeeping to ensure A/B use the same r_local and factor
+        # prefix is normalized as substring before the first occurrence of '.lora_A' or '.lora_B'
+        def _prefix_for(k: str) -> str:
+            if ".lora_A" in k:
+                return k.split(".lora_A", 1)[0]
+            if ".lora_B" in k:
+                return k.split(".lora_B", 1)[0]
+            # Fallback to last-segment stripping for plain keys
+            if k.endswith("lora_A") or k.endswith("lora_B"):
+                return k.rsplit(".", 1)[0]
+            return ""
+
+        # First pass: collect local ranks per prefix from available A/B shapes
+        ranks: dict[str, int] = {}
+        for k, v in state_dict.items():
+            if not isinstance(v, torch.Tensor):
+                continue
+            if (".lora_A" in k) or k.endswith("lora_A"):
+                p = _prefix_for(k)
+                try:
+                    ranks[p] = int(v.shape[0])
+                except Exception:
+                    pass
+            elif (".lora_B" in k) or k.endswith("lora_B"):
+                p = _prefix_for(k)
+                try:
+                    ranks[p] = ranks.get(p, int(v.shape[1]))
+                except Exception:
+                    pass
+
+        # Second pass: write compensated tensors
+        for k, v in state_dict.items():
+            if not isinstance(v, torch.Tensor):
+                out[k] = v
+                continue
+
+            is_A = (".lora_A" in k) or k.endswith("lora_A")
+            is_B = (".lora_B" in k) or k.endswith("lora_B")
+            if not (is_A or is_B):
+                out[k] = v.clone().detach()
+                continue
+
+            p = _prefix_for(k)
+            r_local = max(1, int(ranks.get(p, (v.shape[0] if is_A else v.shape[1]))))
+            # factor such that (alpha/r_local) * (v / c)^2 ~= v^2 -> choose c = sqrt(alpha/r_local)
+            comp = float(lora_alpha) / float(r_local)
+            # guard for extreme/invalid values
+            comp = max(comp, 1e-8)
+            scale = comp ** 0.5
+
+            out[k] = (v / scale).clone().detach()
+
+        return out
+
+    @staticmethod
     def convert_lora_for_sp_inference(
         base_state_dict: dict,
         lora_template_state_dict: dict,

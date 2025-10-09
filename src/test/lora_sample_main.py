@@ -17,7 +17,7 @@ g_app = SampleAppEntry()
 def main():
     # Load app config set from yaml file
     # g_app.load_app_config("./fl_lora_sample/convergence_experiment/finished_kmnist/rbla_r001_epoch1.yaml")
-    g_app.load_app_config("./fl_lora_sample/convergence_experiment/adalora_kmnist/adalora_r1_round300_epoch1.yaml")
+    g_app.load_app_config("./fl_lora_sample/convergence_experiment/adalora_kmnist/adalora_svd_r1_round300_epoch1.yaml")
     # g_app.load_app_config("./fl_lora_sample/convergence_experiment/mnist_fedavg_cuda_config.yaml")
 
     # Get training rounds

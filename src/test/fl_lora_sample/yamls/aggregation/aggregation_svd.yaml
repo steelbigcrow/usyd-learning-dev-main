@@ -1,0 +1,8 @@
+#-----------------------------
+# Aggregation section args
+#-----------------------------
+aggregation:
+  method: svd
+  device: cpu
+  is_wbab: False
+
