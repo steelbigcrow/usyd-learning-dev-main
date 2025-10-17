@@ -17,16 +17,11 @@ class FedAggregator_RBLA(AbstractFedAggregator):
         super().__init__(args)
         self._aggregation_method = "rbla"
         self._lora_suffixes: set[str] = {"lora_A", "lora_B"}
-        self._pad_mode: str = "nan"   # 'nan' or 'zero'
         return
 
     # ---------- Public config ----------
     def set_lora_suffixes(self, lora_suffixes: set[str]) -> None:
         self._lora_suffixes = lora_suffixes
-
-    def set_pad_mode(self, pad_mode: str) -> None:
-        assert pad_mode in {"nan", "zero"}, f"Unsupported pad_mode: {pad_mode}"
-        self._pad_mode = pad_mode
 
     # ---------- FedAvg-style data building ----------
     def build_data_list(self, aggregation_data_dict: dict) -> None:
@@ -98,7 +93,6 @@ class FedAggregator_RBLA(AbstractFedAggregator):
             sds_on_device,
             weights=weights,
             lora_suffixes=self._lora_suffixes,
-            pad_mode=self._pad_mode,
         )
 
         # keep key order like the first state_dict
@@ -121,11 +115,10 @@ class FedAggregator_RBLA(AbstractFedAggregator):
         return key.rsplit(".", 1)[-1]
 
     @staticmethod
-    def pad_tensors_to_max_shape(tensors: list[torch.Tensor], pad_mode: str = "nan") -> torch.Tensor:
+    def pad_tensors_to_max_shape(tensors: list[torch.Tensor]) -> torch.Tensor:
         """
-        Pad 2D tensors to a common shape; return stacked 3D tensor: (N, max_rows, max_cols).
+        Pad 2D tensors to a common shape with NaN; return stacked 3D tensor: (N, max_rows, max_cols).
         """
-        assert pad_mode in {"nan", "zero"}, f"Unsupported pad_mode: {pad_mode}"
         if len(tensors) == 0:
             raise ValueError("pad_tensors_to_max_shape: empty tensor list")
 
@@ -139,10 +132,9 @@ class FedAggregator_RBLA(AbstractFedAggregator):
         device = tensors[0].device
         dtype = tensors[0].dtype
 
-        fill_val = float("nan") if pad_mode == "nan" else 0.0
         padded_list = []
         for t in tensors:
-            pad = torch.full((max_rows, max_cols), fill_val, dtype=dtype, device=device)
+            pad = torch.full((max_rows, max_cols), float("nan"), dtype=dtype, device=device)
             pad[: t.shape[0], : t.shape[1]] = t
             padded_list.append(pad)
         return torch.stack(padded_list, dim=0)
@@ -151,39 +143,33 @@ class FedAggregator_RBLA(AbstractFedAggregator):
     def aggregate_lora_tensors(
         tensors: list[torch.Tensor],
         weights: list[float],
-        pad_mode: str = "nan",
     ) -> torch.Tensor:
         """
-        Weighted average with padding-aware handling for LoRA matrices.
+        Weighted average with NaN-masked handling for LoRA matrices (RBLA-style).
         """
         if len(tensors) == 0:
             raise ValueError("aggregate_lora_tensors: empty tensor list")
 
         weights_tensor = torch.tensor(weights, dtype=torch.float32, device=tensors[0].device).view(-1, 1, 1)
-        padded = FedAggregator_RBLA.pad_tensors_to_max_shape(tensors, pad_mode=pad_mode)
+        padded = FedAggregator_RBLA.pad_tensors_to_max_shape(tensors)
 
-        if pad_mode == "nan":
-            valid_mask = ~torch.isnan(padded)
-            padded = torch.nan_to_num(padded, nan=0.0)
-            weighted_sum = (padded * weights_tensor).sum(dim=0)
-            weight_mask = valid_mask * weights_tensor
-            total_weight = weight_mask.sum(dim=0)
-            total_weight[total_weight == 0] = 1.0  # avoid div-by-zero
-            return weighted_sum / total_weight
-        else:  # zero padding
-            weighted_sum = (padded * weights_tensor).sum(dim=0)
-            total_weight = sum(weights)
-            return weighted_sum / total_weight
+        # NaN-masked averaging: ignore padded positions when averaging
+        valid_mask = ~torch.isnan(padded)
+        padded = torch.nan_to_num(padded, nan=0.0)
+        weighted_sum = (padded * weights_tensor).sum(dim=0)
+        weight_mask = valid_mask * weights_tensor
+        total_weight = weight_mask.sum(dim=0)
+        total_weight[total_weight == 0] = 1.0  # avoid div-by-zero
+        return weighted_sum / total_weight
 
     @staticmethod
     def aggregate_state_dicts(
         state_dicts: list[dict],
         weights: list[float] | None = None,
         lora_suffixes: set[str] = {"lora_A", "lora_B"},
-        pad_mode: str = "nan",
     ) -> dict:
         """
-        Aggregate multiple state_dicts with LoRA-aware averaging.
+        Aggregate multiple state_dicts with LoRA-aware averaging (NaN-masked for LoRA tensors).
         """
         if len(state_dicts) == 0:
             raise ValueError("aggregate_state_dicts: empty state_dicts")
@@ -203,7 +189,7 @@ class FedAggregator_RBLA(AbstractFedAggregator):
             suffix = FedAggregator_RBLA.get_suffix(key)
 
             if suffix in lora_suffixes:
-                aggregated[key] = FedAggregator_RBLA.aggregate_lora_tensors(values, weights, pad_mode=pad_mode)
+                aggregated[key] = FedAggregator_RBLA.aggregate_lora_tensors(values, weights)
             else:
                 stacked = torch.stack(values, dim=0)  # (N, ...)
                 # weights reshape: (N, 1, 1, ..., 1)

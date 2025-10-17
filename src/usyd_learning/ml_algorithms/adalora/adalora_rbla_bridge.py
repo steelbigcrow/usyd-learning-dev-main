@@ -261,16 +261,24 @@ def plain_lora_to_peft(
                 out[B_key] = (B * mask_cols).clone().detach()
 
         # Update lora_E in the PEFT-shaped dict using the unified mask as a gate
+        # NOTE: Some templates have lora_E length different from the inferred mask length.
+        # To be robust, we build the gating vector to match E's first dimension and fill first-K entries with 1.
         E_key = _find_lora_e_key(out, prefix, base_prefix=base_prefix)
         if E_key is not None and E_key in out and torch.is_tensor(out[E_key]):
             E = out[E_key]
-            # E can be [r, 1]; broadcast mask
-            m = uni_mask.view(-1, 1).to(dtype=E.dtype, device=E.device)
-            out[E_key] = (E * 0.0 + 1.0) * m  # set selected entries to 1.0, others 0.0
+            # E expected shape [r_e, 1] (or broadcast compatible)
+            r_e = int(E.shape[0]) if E.dim() >= 1 else int(uni_mask.numel())
+            e_mask = torch.zeros(r_e, 1, dtype=E.dtype, device=E.device)
+            if K > 0:
+                e_mask[: min(K, r_e), :] = 1.0
+            out[E_key] = (E * 0.0 + 1.0) * e_mask  # 1.0 for selected, 0.0 otherwise
         elif E_key is not None and E_key in peft_template and torch.is_tensor(peft_template[E_key]):
             E_t = peft_template[E_key]
-            m = uni_mask.view(-1, 1).to(dtype=E_t.dtype, device=E_t.device)
-            out[E_key] = (E_t * 0.0 + 1.0) * m
+            r_e = int(E_t.shape[0]) if E_t.dim() >= 1 else int(uni_mask.numel())
+            e_mask = torch.zeros(r_e, 1, dtype=E_t.dtype, device=E_t.device)
+            if K > 0:
+                e_mask[: min(K, r_e), :] = 1.0
+            out[E_key] = (E_t * 0.0 + 1.0) * e_mask
 
         # Update ranknum if available
         rk_key = _find_rankhint_key(out, prefix, base_prefix=base_prefix)
