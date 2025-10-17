@@ -7,9 +7,6 @@ from usyd_learning.fl_algorithms.aggregation.fed_aggregator_facotry import FedAg
 from usyd_learning.model_trainer.model_evaluator import ModelEvaluator
 from usyd_learning.ml_utils import console
 from usyd_learning.ml_algorithms.lora.lora_utils import LoRAUtils
-from usyd_learning.fl_algorithms.aggregation.methods._fed_aggregator_rbla import (
-    FedAggregator_RBLA,
-)
 
 
 class SvdServerStrategy(ServerStrategy):
@@ -94,7 +91,7 @@ class SvdServerStrategy(ServerStrategy):
             )
 
             # Ensure LoRA A/B shapes match evaluator's ranks (slice/pad as needed)
-            adapted_local = FedAggregator_RBLA.broadcast_lora_state_dict(
+            adapted_local = LoRAUtils.broadcast_lora_state_dict(
                 global_sd=plain_mapped,
                 local_sd=target_sd,
             )

@@ -554,6 +554,57 @@ class LoRAUtils:
         return new_sd
 
     @staticmethod
+    def broadcast_lora_state_dict(global_sd: dict, local_sd: dict, lora_suffixes: set[str] = {"lora_A", "lora_B"}) -> OrderedDict:
+        """
+        Slice or pad global LoRA matrices back to a local state_dict's ranks; copy non-LoRA tensors directly.
+
+        This is a neutral utility (moved from RBLA) so that any strategy (SVD, RBLA, ZP, etc.)
+        can reuse the same broadcast behaviour without importing RBLA modules.
+        """
+        out = OrderedDict()
+        for key, local_tensor in local_sd.items():
+            if key not in global_sd:
+                out[key] = local_tensor.clone() if torch.is_tensor(local_tensor) else local_tensor
+                continue
+
+            global_tensor = global_sd[key]
+
+            # Robust suffix detection: accept keys like '*.lora_A.default'
+            raw_suffix = key.rsplit(".", 1)[-1]
+            suffix = raw_suffix
+            if raw_suffix not in lora_suffixes:
+                if ".lora_A" in key:
+                    suffix = "lora_A"
+                elif ".lora_B" in key:
+                    suffix = "lora_B"
+
+            if suffix not in lora_suffixes:
+                out[key] = global_tensor.clone() if torch.is_tensor(global_tensor) else global_tensor
+            else:
+                if suffix == "lora_A":       # [r, in]
+                    r_local = local_tensor.shape[0]
+                    r_global = global_tensor.shape[0]
+                    if r_global >= r_local:
+                        out[key] = global_tensor[:r_local, :].clone()
+                    else:
+                        pad = torch.zeros((r_local, global_tensor.shape[1]), dtype=global_tensor.dtype, device=global_tensor.device)
+                        pad[:r_global, :] = global_tensor
+                        out[key] = pad
+                elif suffix == "lora_B":     # [out, r]
+                    r_local = local_tensor.shape[1]
+                    r_global = global_tensor.shape[1]
+                    if r_global >= r_local:
+                        out[key] = global_tensor[:, :r_local].clone()
+                    else:
+                        pad = torch.zeros((global_tensor.shape[0], r_local), dtype=global_tensor.dtype, device=global_tensor.device)
+                        pad[:, :r_global] = global_tensor
+                        out[key] = pad
+                else:
+                    out[key] = global_tensor.clone() if torch.is_tensor(global_tensor) else global_tensor
+
+        return out
+
+    @staticmethod
     def map_peft_to_lora_state_dict(
         target_state_dict: dict,
         peft_state_dict: dict,
