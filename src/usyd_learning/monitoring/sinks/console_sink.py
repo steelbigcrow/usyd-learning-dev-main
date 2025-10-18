@@ -31,7 +31,12 @@ class ConsoleSink(BaseSink):
         )
 
     def write_adalora_rank(self, row: Dict[str, Any]) -> None:
+        r = row.get('r', '?')
+        r_eff = row.get('r_eff', None)
+        r_part = f"r={r}"
+        if isinstance(r_eff, (int, float)):
+            r_part += f" r_eff={int(r_eff)}"
         console.info(
             f"[monitor] adalora role={row.get('role','?')} node={row.get('node_id','?')} "
-            f"epoch={row.get('epoch','?')} layer={row.get('layer','?')} r={row.get('r','?')}"
+            f"epoch={row.get('epoch','?')} layer={row.get('layer','?')} {r_part}"
         )

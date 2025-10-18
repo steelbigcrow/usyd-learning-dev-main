@@ -58,19 +58,57 @@ def patch_train_step_rank_snapshot() -> None:
             if not ranks:
                 return loss
 
+            # Try to derive effective ranks (r_eff) from AdaLoRA mask/hints when available
+            r_eff_map: Dict[str, int] = {}
+            try:
+                # Use PEFT/AdaLoRA bridge to infer per-layer rr from lora_E/ranknum
+                from ...ml_algorithms.adalora.adalora_rbla_bridge import (
+                    peft_to_plain_lora_shrunk,
+                )
+
+                peft_sd = model.state_dict()
+                shrunk = peft_to_plain_lora_shrunk(peft_sd)
+
+                # Extract '<prefix>.rank_rr' -> int(rr)
+                for k, v in list(shrunk.items()):
+                    if not isinstance(k, str):
+                        continue
+                    if k.endswith(".rank_rr"):
+                        pref = k[: -len(".rank_rr")]
+                        try:
+                            r_eff_map[pref] = int(round(float(getattr(v, "item", lambda: v)())))  # type: ignore
+                        except Exception:
+                            try:
+                                r_eff_map[pref] = int(round(float(v)))  # type: ignore[arg-type]
+                            except Exception:
+                                pass
+
+                # Provide alternate keys prefixed with 'base_model.model.' to match possible layer names
+                for pref, rr in list(r_eff_map.items()):
+                    bm_pref = f"base_model.model.{pref}"
+                    if bm_pref not in r_eff_map:
+                        r_eff_map[bm_pref] = rr
+            except Exception:
+                # Best-effort only; if unavailable, fall back to physical ranks
+                r_eff_map = {}
+
             # Emit rank rows per layer
             round_idx = hub.current_round.round_index if (hub and hub.current_round) else -1
+            epoch_idx = int(getattr(self, "_epoch_idx", 0) or 0)
+            ts_now = int(__import__("time").time())
             for layer, r in ranks.items():
+                r_eff = int(r_eff_map.get(layer, r))
                 hub.write_adalora_rank(
                     {
-                        "ts": int(__import__("time").time()),
+                        "ts": ts_now,
                         "run_id": hub.run_id if hub else "",
                         "round": round_idx,
                         "role": role,
                         "node_id": node_id,
-                        "epoch": int(getattr(self, "_epoch_idx", 0) or 0),
+                        "epoch": epoch_idx,
                         "layer": layer,
                         "r": int(r),
+                        "r_eff": int(r_eff),
                     }
                 )
         except Exception:
@@ -125,4 +163,3 @@ def patch_broadcast_pad_slice_counters() -> None:
 
     setattr(_LU.broadcast_lora_state_dict, "__monitor_patched__", True)
     _LU.broadcast_lora_state_dict = staticmethod(_wrapped)  # type: ignore[attr-defined]
-

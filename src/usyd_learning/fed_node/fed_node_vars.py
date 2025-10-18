@@ -368,8 +368,9 @@ class FedNodeVars(ObjectMap, EventHandler, KeyValueArgs):
         return
     
     def prepare_model_evaluator(self):
-
-        self.model_evaluator = ModelEvaluator(self.model, self.data_loader, self.loss_func)
+        # Ensure evaluator runs on the same device as training for performance
+        # Pass the DatasetLoader wrapper; ModelEvaluator will pick test_data_loader internally
+        self.model_evaluator = ModelEvaluator(self.model, self.data_loader, self.loss_func, device=self.device)
 
         return
 

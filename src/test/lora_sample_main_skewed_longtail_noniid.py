@@ -13,7 +13,7 @@ startup_init_path(os.path.dirname(os.path.abspath(__file__)))
 # This single import auto-loads config and instruments server/client runtime
 import usyd_learning.monitoring.auto_enable  # noqa: F401
 from usyd_learning.ml_utils import console
-from fl_lora_sample.lora_sample_entry import SampleAppEntry
+from fl_lora_sample.lora_sample_entry_skewed_longtail_noniid import SampleAppEntry
 
 g_app = SampleAppEntry()
 
@@ -21,7 +21,7 @@ def main():
     # Load app config set from yaml file
     # g_app.load_app_config("./fl_lora_sample/convergence_experiment/finished_kmnist/rbla_r001_epoch1.yaml")
     # For decoupling check, use a small RBLA+Adalora config on KMNIST
-    g_app.load_app_config("./fl_lora_sample/convergence_experiment/adalora_kmnist/adalora_noniid_rbla_r1_round300_epoch1.yaml")
+    g_app.load_app_config("./fl_lora_sample/convergence_experiment/adalora_kmnist/adalora_svd_r1_round30_epoch1.yaml")
     # g_app.load_app_config("./fl_lora_sample/convergence_experiment/mnist_fedavg_cuda_config.yaml")
 
     # Get training rounds (allow override via env for quick tests)
@@ -69,3 +69,4 @@ if __name__ == "__main__":
     main()
     console.out("\n======================= PROGRAM END ============================")
     #console.wait_any_key()
+

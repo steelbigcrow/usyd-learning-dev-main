@@ -45,30 +45,57 @@ class LoRAUtils:
         lora_A_params: Dict[str, torch.Tensor] = {}
         lora_B_params: Dict[str, torch.Tensor] = {}
 
-        # Collect A/B params keyed by prefix
+        # Helper to normalize a parameter name to the logical layer prefix.
+        # Supports both in-repo LoRA (names ending with '.lora_A'/'lora_B') and
+        # PEFT/AdaLoRA style keys that contain '.lora_A' / '.lora_B' with extra
+        # segments like '.default' and '.weight' (e.g., '...lora_A.default.weight').
+        def _prefix_for_param(name: str, suffix: str) -> Optional[str]:
+            # Exact suffix match (custom LoRA modules)
+            if name.endswith(suffix):
+                return name[: -(len(suffix) + 1)]  # strip ".<suffix>"
+            # PEFT-style: locate first occurrence of '.<suffix>' anywhere
+            marker = f".{suffix}"
+            if marker in name:
+                return name.split(marker, 1)[0]
+            # Some implementations may store parameter as '<suffix>.weight'
+            # and the name ends with that; above branch already covers it by
+            # splitting on the first occurrence of '.<suffix>'.
+            return None
+
+        # Collect A/B params keyed by logical prefix
         for name, param in model.named_parameters():
-            if name.endswith(suffix_A):
-                prefix = name[: -(len(suffix_A) + 1)]  # strip ".lora_A"
-                lora_A_params[prefix] = param
-            elif name.endswith(suffix_B):
-                prefix = name[: -(len(suffix_B) + 1)]  # strip ".lora_B"
-                lora_B_params[prefix] = param
+            pA = _prefix_for_param(name, suffix_A)
+            if pA is not None:
+                lora_A_params[pA] = param
+                continue
+            pB = _prefix_for_param(name, suffix_B)
+            if pB is not None:
+                lora_B_params[pB] = param
 
         # Infer rank per prefix
         all_prefixes = set(lora_A_params.keys()) | set(lora_B_params.keys())
         for prefix in all_prefixes:
             r: Optional[int] = None
             if prefix in lora_A_params:
-                r = int(lora_A_params[prefix].shape[0])  # A: [r, in]
+                # A param has shape [r, in]
+                try:
+                    r = int(lora_A_params[prefix].shape[0])
+                except Exception:
+                    pass
             if prefix in lora_B_params:
-                r_B = int(lora_B_params[prefix].shape[1])  # B: [out, r]
-                r = r if r is not None else r_B
-                # If both exist, they must agree (typical LoRA constraint)
-                if r != r_B:
-                    raise ValueError(
-                        f"Inconsistent LoRA rank for '{prefix}': A={r}, B={r_B}"
-                    )
-            ranks[prefix] = int(r) if r is not None else 0
+                # B param has shape [out, r]
+                try:
+                    r_B = int(lora_B_params[prefix].shape[1])
+                except Exception:
+                    r_B = None  # type: ignore
+                else:
+                    r = r if r is not None else r_B
+                    if r is not None and r_B is not None and r != r_B:
+                        raise ValueError(
+                            f"Inconsistent LoRA rank for '{prefix}': A={r}, B={r_B}"
+                        )
+            if r is not None:
+                ranks[prefix] = int(r)
 
         return ranks
 

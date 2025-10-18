@@ -4,20 +4,20 @@ trainer:
   save_path: "./.training_results/"
   # AdaLoRA configuration (fields forwarded to peft.AdaLoraConfig)
   adalora:
-    # Base LoRA-style knobs
-    r: 8
+    # Base LoRA-style knobs（提高初始/目标秩以增加容量）
+    r: 16            # 原 8 → 16，基础秩/最大秩上限
+    init_r: 16       # 新增：初始秩，提高早期有效通道数
+    target_r: 12     # 新增：目标秩，训练后期的期望秩（>8）
     lora_alpha: 16
     lora_dropout: 0.05
     total_step: 1000
     # Optional AdaLoRA extras (all optional; uncomment/tune as needed)
-    # init_r: 12
     # tinit: 0
     # tfinal: 0
     # deltaT: 1
     # beta1: 0.85
     # beta2: 0.85
     # orth_reg_weight: 0.5
-    # target_r: 8
     # bias: "none"            # one of: none, all, lora_only
     # inference_mode: false
     # use_rslora: false

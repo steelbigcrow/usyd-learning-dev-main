@@ -42,8 +42,9 @@ class MonitorHub:
         self._t_apply: float | None = None
         self._t_eval: float | None = None
 
-        if self.enabled:
-            self._open_sinks()
+        # Defer opening sinks until we know the final run folder
+        # (training_logger instrumentation may retarget run folder).
+        # Sinks will be opened on set_run_folder() or first round/write.
         # Lazy init for optional resource libs
         self._psutil = None
         self._pynvml = None
@@ -76,6 +77,13 @@ class MonitorHub:
     def close(self) -> None:
         self._close_sinks()
 
+    def _ensure_sinks_open(self) -> None:
+        """Open sinks on-demand if not already opened."""
+        if not self.enabled:
+            return
+        if not self.sinks:
+            self._open_sinks()
+
     # ---------- retarget run folder ----------
     def set_run_folder(self, folder_name: str) -> None:
         """Move outputs into .monitor/<folder_name> for this run.
@@ -95,6 +103,7 @@ class MonitorHub:
         except Exception:
             pass
         try:
+            # Open sinks now that final folder is known
             self._open_sinks()
             console.info(f"[monitor] run folder set to: {self._current_out_dir}")
         except Exception:
@@ -104,6 +113,8 @@ class MonitorHub:
     def next_round(self) -> RoundContext | None:
         if not self.enabled:
             return None
+        # Ensure sinks are opened before any writes in this round
+        self._ensure_sinks_open()
         self.round_counter += 1
         self.current_round = RoundContext(
             run_id=self.run_id,
@@ -186,6 +197,7 @@ class MonitorHub:
     def finalize_round(self) -> None:
         if not self.enabled or self.current_round is None:
             return
+        self._ensure_sinks_open()
         c = self.current_round
         row = {
             "ts": int(time.time()),
@@ -272,6 +284,7 @@ class MonitorHub:
     def client_train_end(self, client_id: str, train_record: Dict[str, Any]) -> None:
         if not self.enabled:
             return
+        self._ensure_sinks_open()
         # train_record typically contains: epoch_loss (list), avg_loss, ...
         epoch_losses: List[float] = list(train_record.get("epoch_loss", []))
         avg_loss = train_record.get("avg_loss", None)
@@ -298,6 +311,7 @@ class MonitorHub:
     def write_aggregation_layer(self, row: Dict[str, Any]) -> None:
         if not self.enabled:
             return
+        self._ensure_sinks_open()
         for s in self.sinks:
             try:
                 s.write_aggregation_layer(row)
@@ -308,6 +322,7 @@ class MonitorHub:
     def write_adalora_rank(self, row: Dict[str, Any]) -> None:
         if not self.enabled:
             return
+        self._ensure_sinks_open()
         for s in self.sinks:
             try:
                 s.write_adalora_rank(row)

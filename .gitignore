@@ -187,3 +187,4 @@ cython_debug/
 # Agent
 AGENTS.md
 .monitor/
+Test Config Records.md

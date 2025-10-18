@@ -106,31 +106,31 @@ yaml_folder_rank_distribution_files:
 
 yaml_combination:
   runner:
-  - general_round30
+  - general_round300
   - training_logger
   - fl_nodes
   - svd_runner_strategy
   client_yaml:
-  - general_round30
+  - general_round300
   - training_logger
   - dataset_loader_kmnist
   - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
   - training_epoch1
-  - kmnist_long_tail
+  - kmnist_one_label
   - svd_client_strategy
   - trainer_adalora
   edge_yaml: []
   server_yaml:
-  - general_round30
+  - general_round300
   - training_logger
   - dataset_loader_kmnist
   - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
   - training_epoch1
-  - kmnist_long_tail
+  - kmnist_one_label
   - trainer_adalora
   - client_selection_random
   - svd_server_strategy
