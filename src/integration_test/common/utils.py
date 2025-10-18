@@ -46,3 +46,18 @@ def run_scenario(config_path: str, rounds: int = 1, device: str = "cpu") -> Tupl
     server_var = runner.server_node.node_var
     return app, runner, server_var
 
+
+def run_scenario_skewed(config_path: str, rounds: int = 1, device: str = "cpu") -> Tuple[Any, Any, Any]:
+    """
+    Run a single scenario with the skewed long-tail entry that uses a decoupled
+    partitioner for non-IID distribution. Returns (entry, runner, server_var).
+    """
+    from integration_test.common.skewed_entry import SkewedSampleAppEntry
+
+    app = SkewedSampleAppEntry()
+    app.load_app_config(config_path)
+    app.run(device, rounds)
+
+    runner = app.fed_runner
+    server_var = runner.server_node.node_var
+    return app, runner, server_var
