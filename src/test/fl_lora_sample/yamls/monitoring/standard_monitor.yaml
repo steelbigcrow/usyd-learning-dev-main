@@ -1,0 +1,20 @@
+monitoring:
+  enabled: true
+  sinks: [csv, console]
+  dir: ./.monitor
+  sampling:
+    batch_interval: 1
+  resources:
+    gpu_mem: false
+    cpu_mem: false
+  adalora:
+    enabled: auto
+    snapshot: epoch
+  aggregation:
+    common: {enabled: true}
+    fedavg: {enabled: true, layer_delta_sample: 4}
+    svd:    {enabled: true, energy_sample_layers: 0}
+    rbla:   {enabled: true, track_pad_slice: true}
+    sp:     {enabled: true, apply_weight_mode_metrics: false}
+    zeropad:{enabled: true}
+
