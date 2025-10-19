@@ -19,6 +19,8 @@ yaml_folder_rank_distribution_path: ../../yamls/rank_distribution
 yaml_folder_aggreation_files:
 - aggregation_rbla.yaml: aggregation_rbla
 - aggregation_sp.yaml: aggregation_sp
+- aggregation_zp.yaml: aggregation_zp
+- aggregation_svd.yaml: aggregation_svd
 
 yaml_folder_client_selection_files:
 - random.yaml: client_selection_random
@@ -35,6 +37,7 @@ yaml_folder_data_distribution_files:
 - fmnist_one_label.yaml: fmnist_one_label
 - qmnist_one_label.yaml: qmnist_one_label
 - kmnist_one_label.yaml: kmnist_one_label
+- kmnist_long_tail.yaml: kmnist_long_tail
 
 yaml_folder_loss_func_files:
 - cross_entropy.yaml: cross_entropy
@@ -64,14 +67,20 @@ yaml_folder_training_files:
 yaml_folder_client_strategy_files:
 - rbla.yaml: rbla_client_strategy
 - sp.yaml: sp_client_strategy
+- svd.yaml: svd_client_strategy
+- zp.yaml: zp_client_strategy
 
 yaml_folder_server_strategy_files:
 - rbla.yaml: rbla_server_strategy
 - sp.yaml: sp_server_strategy
+- svd.yaml: svd_server_strategy
+- zp.yaml: zp_server_strategy
 
 yaml_folder_runner_strategy_files:
 - rbla.yaml: rbla_runner_strategy
 - sp.yaml: sp_runner_strategy
+- svd.yaml: svd_runner_strategy
+- zp.yaml: zp_runner_strategy
 
 yaml_folder_trainer_files:
 - standard_trainer.yaml: trainer_standard
@@ -100,34 +109,35 @@ yaml_folder_rank_distribution_files:
 
 yaml_combination:
   runner:
-  - general_round100
+  - general_round60
   - training_logger
   - fl_nodes
-  - rbla_runner_strategy
+  - zp_runner_strategy
   client_yaml:
-  - general_round100
+  - general_round60
   - training_logger
   - dataset_loader_kmnist
   - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
-  - training_epoch2
-  - kmnist_one_label
-  - rbla_client_strategy
+  - training_epoch1
+  - kmnist_long_tail
+  - zp_client_strategy
   - trainer_adalora
   edge_yaml: []
   server_yaml:
-  - general_round100
+  - general_round60
   - training_logger
   - dataset_loader_kmnist
   - nn_model_mnist_mlp_adalora
   - cross_entropy
   - sgd
-  - training_epoch2
-  - kmnist_one_label
+  - training_epoch1
+  - kmnist_long_tail
   - trainer_adalora
   - client_selection_random
-  - rbla_server_strategy
-  - aggregation_rbla
+  - zp_server_strategy
+  - aggregation_zp
   - rank_distribution_1_heterogeneous
   - base_lora_inference_mode
+

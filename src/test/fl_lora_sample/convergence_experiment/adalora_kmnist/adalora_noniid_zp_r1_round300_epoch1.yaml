@@ -68,16 +68,19 @@ yaml_folder_client_strategy_files:
 - rbla.yaml: rbla_client_strategy
 - sp.yaml: sp_client_strategy
 - svd.yaml: svd_client_strategy
+- zp.yaml: zp_client_strategy
 
 yaml_folder_server_strategy_files:
 - rbla.yaml: rbla_server_strategy
 - sp.yaml: sp_server_strategy
 - svd.yaml: svd_server_strategy
+- zp.yaml: zp_server_strategy
 
 yaml_folder_runner_strategy_files:
 - rbla.yaml: rbla_runner_strategy
 - sp.yaml: sp_runner_strategy
 - svd.yaml: svd_runner_strategy
+- zp.yaml: zp_runner_strategy
 
 yaml_folder_trainer_files:
 - standard_trainer.yaml: trainer_standard
@@ -109,7 +112,7 @@ yaml_combination:
   - general_round300
   - training_logger
   - fl_nodes
-  - rbla_runner_strategy
+  - zp_runner_strategy
   client_yaml:
   - general_round300
   - training_logger
@@ -119,7 +122,7 @@ yaml_combination:
   - sgd
   - training_epoch1
   - kmnist_one_label
-  - rbla_client_strategy
+  - zp_client_strategy
   - trainer_adalora
   edge_yaml: []
   server_yaml:
@@ -133,7 +136,7 @@ yaml_combination:
   - kmnist_one_label
   - trainer_adalora
   - client_selection_random
-  - rbla_server_strategy
-  - aggregation_rbla
+  - zp_server_strategy
+  - aggregation_zp
   - rank_distribution_1_heterogeneous
   - base_lora_inference_mode

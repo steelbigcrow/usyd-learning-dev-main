@@ -68,16 +68,19 @@ yaml_folder_client_strategy_files:
 - rbla.yaml: rbla_client_strategy
 - sp.yaml: sp_client_strategy
 - svd.yaml: svd_client_strategy
+- zp.yaml: zp_client_strategy
 
 yaml_folder_server_strategy_files:
 - rbla.yaml: rbla_server_strategy
 - sp.yaml: sp_server_strategy
 - svd.yaml: svd_server_strategy
+- zp.yaml: zp_server_strategy
 
 yaml_folder_runner_strategy_files:
 - rbla.yaml: rbla_runner_strategy
 - sp.yaml: sp_runner_strategy
 - svd.yaml: svd_runner_strategy
+- zp.yaml: zp_runner_strategy
 
 yaml_folder_trainer_files:
 - standard_trainer.yaml: trainer_standard
