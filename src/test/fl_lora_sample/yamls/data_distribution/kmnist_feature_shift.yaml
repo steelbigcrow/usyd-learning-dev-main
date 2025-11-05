@@ -1,0 +1,25 @@
+#-----------------------------
+# Data distribution section
+#-----------------------------
+data_distribution:
+
+  # Use distribution name, predefined 'mnist_lt', 'mnist_lt_one_label', 'mnist_data_volum_balance',
+  # others for custom distribution from 'custom_define'
+  use: kmnist_feature_shift
+
+  # Feature shift: for n clients (default 10), evenly split each label's samples
+  # across all clients. (KMNIST has 6000 per class -> 600 each client per label.)
+  custom_define:
+    kmnist_feature_shift: [
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600],
+      [600, 600, 600, 600, 600, 600, 600, 600, 600, 600]
+    ]
+
