@@ -4,7 +4,7 @@
 optimizer:
   type: SGD             # Options: SGD, Adam, Adagrad, RMSprop, etc.
   # Conservative anti-overfitting settings: lower LR, higher WD, enable Nesterov
-  lr: 0.01              # Learning rate (reduced for stabler convergence)
+  lr: 0.05              # Learning rate (reduced for stabler convergence)
   weight_decay: 0.0001  # Stronger L2 regularization to curb overfitting
   momentum: 0.9         # Momentum (for SGD and RMSprop, set to None if not used)
   nesterov: False       # Use Nesterov momentum (requires momentum > 0)
