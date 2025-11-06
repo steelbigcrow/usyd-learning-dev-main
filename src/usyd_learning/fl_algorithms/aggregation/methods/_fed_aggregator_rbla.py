@@ -140,6 +140,27 @@ class FedAggregator_RBLA(AbstractFedAggregator):
         return torch.stack(padded_list, dim=0)
 
     @staticmethod
+    def pad_vectors_to_max_len(vectors: list[torch.Tensor]) -> torch.Tensor:
+        """
+        Pad 1D vectors to a common length with NaN; return stacked (N, max_len).
+        """
+        if len(vectors) == 0:
+            raise ValueError("pad_vectors_to_max_len: empty vector list")
+
+        for v in vectors:
+            if v.dim() != 1:
+                raise ValueError(f"rank_mask vector must be 1D, got {v.dim()}D for shape {tuple(v.shape)}")
+
+        max_len = max(int(v.shape[0]) for v in vectors)
+        device = vectors[0].device
+        dtype = vectors[0].dtype
+
+        stacked = torch.full((len(vectors), max_len), float("nan"), dtype=dtype, device=device)
+        for i, v in enumerate(vectors):
+            stacked[i, : v.shape[0]] = v
+        return stacked
+
+    @staticmethod
     def aggregate_lora_tensors(
         tensors: list[torch.Tensor],
         weights: list[float],
@@ -187,8 +208,30 @@ class FedAggregator_RBLA(AbstractFedAggregator):
         for key in keys:
             values = [sd[key] for sd in state_dicts]
             suffix = FedAggregator_RBLA.get_suffix(key)
+            # Robust LoRA detection: handle names like '*.lora_A.default.weight'
+            is_lora_param = (suffix in lora_suffixes) or (".lora_A" in key) or (".lora_B" in key)
 
-            if suffix in lora_suffixes:
+            # Special handling for AdaLoRA auxiliary vectors/scalars
+            if key.endswith(".rank_mask"):
+                vecs = [v.view(-1) if torch.is_tensor(v) else torch.as_tensor(v).view(-1) for v in values]
+                stacked = FedAggregator_RBLA.pad_vectors_to_max_len(vecs)  # (N, Rmax)
+                wt = torch.as_tensor(weights, dtype=stacked.dtype, device=stacked.device).view(-1, 1)
+                valid = ~torch.isnan(stacked)
+                stacked = torch.nan_to_num(stacked, nan=0.0)
+                weighted_sum = (stacked * wt).sum(dim=0)
+                total_w = (valid * wt).sum(dim=0)
+                total_w[total_w == 0] = 1.0
+                aggregated[key] = weighted_sum / total_w
+                continue
+            if key.endswith(".rank_rr"):
+                vals = [float(v.detach().view(-1)[0].item()) if torch.is_tensor(v) else float(v) for v in values]
+                wt = torch.as_tensor(weights, dtype=torch.float32)
+                num = (wt * torch.tensor(vals, dtype=torch.float32)).sum()
+                den = wt.sum() if float(wt.sum()) != 0.0 else torch.tensor(1.0)
+                aggregated[key] = torch.as_tensor(num / den, dtype=values[0].dtype, device=values[0].device)
+                continue
+
+            if is_lora_param:
                 aggregated[key] = FedAggregator_RBLA.aggregate_lora_tensors(values, weights)
             else:
                 stacked = torch.stack(values, dim=0)  # (N, ...)

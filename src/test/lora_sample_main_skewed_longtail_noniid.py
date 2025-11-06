@@ -19,10 +19,10 @@ g_app = SampleAppEntry()
 
 def main():
     # Load app config set from yaml file
-    # g_app.load_app_config("./fl_lora_sample/convergence_experiment/finished_kmnist/rbla_r001_epoch1.yaml")
-    # For decoupling check, use a small RBLA+Adalora config on KMNIST
-    g_app.load_app_config("./fl_lora_sample/convergence_experiment/adalora_kmnist/adalora_longtail_noniid_zp_r1_round60_epoch1.yaml")
-    # g_app.load_app_config("./fl_lora_sample/convergence_experiment/mnist_fedavg_cuda_config.yaml")
+    # Use MNIST RBLA skewed long-tail non-IID with homogeneous rank
+    g_app.load_app_config(
+        "./fl_lora_sample/convergence_experiment/lora_mnist/RBLA/Homogeneous Rank/rbla_mnist_long_tail_homogeneous_round60_epoch1.yaml"
+    )
 
     # Get training rounds (allow override via env for quick tests)
     training_rounds = g_app.training_rounds

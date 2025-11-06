@@ -162,7 +162,7 @@ class MSLoRALinear(nn.Linear, MSLoRALayer):
         if self.r > 0 and not self.merged:
             result = F.linear(x, T(self.weight), bias=self.bias)
             if self.r > 0:
-                result += (self.lora_dropout(x) @ self.lora_A.T @ self.lora_B.T) * 1#self.scaling
+                result += (self.lora_dropout(x) @ self.lora_A.T @ self.lora_B.T) * self.scaling
             return result
         else:
             return F.linear(x, T(self.weight), bias=self.bias)
@@ -327,7 +327,7 @@ class MSLoRAConv2d(nn.Conv2d, MSLoRALayer):
         if self.r > 0 and not self.merged:
             return F.conv2d(
                 x, 
-                self.weight + (self.lora_B @ self.lora_A).view(self.weight.shape) * 1,#self.scaling,
+                self.weight + (self.lora_B @ self.lora_A).view(self.weight.shape) * self.scaling,
                 self.bias, self.stride, self.padding, self.dilation, self.groups
             )
         return nn.Conv2d.forward(self, x)
