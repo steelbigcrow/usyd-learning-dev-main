@@ -21,10 +21,9 @@ g_app = SampleAppEntry()
 
 def main():
     # Load app config set from yaml file
-    # Recommend: use a config whose data_distribution includes *_feature_shift.yaml
-    # Example (adjust data_distribution mapping inside this file to kmnist_feature_shift/mnist_feature_shift):
+    # Use MNIST SP feature shift with homogeneous rank
     g_app.load_app_config(
-        "./fl_lora_sample/convergence_experiment/lora_mnist/RBLA/Homogeneous Rank/rbla_mnist_feature_shift_homogeneous_round60_epoch1.yaml"
+        "./fl_lora_sample/convergence_experiment/lora_mnist/SP/Homogeneous Rank/sp_mnist_feature_shift_homogeneous_round60_epoch1.yaml"
     )
 
     # Get training rounds (allow override via env for quick tests)

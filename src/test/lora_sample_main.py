@@ -19,9 +19,9 @@ g_app = SampleAppEntry()
 
 def main():
     # Load app config set from yaml file
-    # Use MNIST RBLA non-IID (one label per client) with homogeneous rank
+    # Use MNIST SP non-IID (one label per client) with homogeneous rank
     g_app.load_app_config(
-        "./fl_lora_sample/convergence_experiment/lora_mnist/RBLA/Homogeneous Rank/rbla_mnist_one_label_homogeneous_round250_epoch1.yaml"
+        "./fl_lora_sample/convergence_experiment/lora_mnist/SP/Homogeneous Rank/sp_mnist_one_label_homogeneous_round250_epoch1.yaml"
     )
 
     # Get training rounds (allow override via env for quick tests)

@@ -19,9 +19,9 @@ g_app = SampleAppEntry()
 
 def main():
     # Load app config set from yaml file
-    # Use MNIST RBLA skewed long-tail non-IID with homogeneous rank
+    # Use MNIST SP skewed long-tail non-IID with homogeneous rank
     g_app.load_app_config(
-        "./fl_lora_sample/convergence_experiment/lora_mnist/RBLA/Homogeneous Rank/rbla_mnist_long_tail_homogeneous_round60_epoch1.yaml"
+        "./fl_lora_sample/convergence_experiment/lora_mnist/SP/Homogeneous Rank/sp_mnist_long_tail_homogeneous_round60_epoch1.yaml"
     )
 
     # Get training rounds (allow override via env for quick tests)
