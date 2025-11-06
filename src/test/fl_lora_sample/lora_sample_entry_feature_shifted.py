@@ -1,13 +1,20 @@
 """
-Entry class of lora sample (skewed long-tail non-IID variant)
+Entry class of LoRA sample (feature-shifted variant).
+
+This mirrors the skewed_longtail_noniid entry but uses a feature-shifted
+partitioner. It consumes the server YAML's data_distribution (a client-by-class
+count matrix) when provided, and falls back to an even per-label split across
+clients otherwise.
 """
+
+from __future__ import annotations
 
 from usyd_learning.fed_node import FedNodeVars, FedNodeEventArgs
 from usyd_learning.fed_runner import FedRunner
 from usyd_learning.ml_utils import AppEntry, console
-from usyd_learning.fl_algorithms.skewed_longtail_noniid import (
-    SkewedLongtailPartitioner,
-    SkewedLongtailArgs,
+from usyd_learning.fl_algorithms.feature_shifted import (
+    FeatureShiftedPartitioner,
+    FeatureShiftedArgs,
 )
 from usyd_learning.ml_data_loader.dataset_loader_factory import DatasetLoaderFactory
 from usyd_learning.ml_data_loader.dataset_loader_args import DatasetLoaderArgs
@@ -45,28 +52,39 @@ class SampleAppEntry(AppEntry):
 
         # Prepare server node and var
         server_var = FedNodeVars(self.server_yaml)
-        server_var.prepare()  # TODO: create server strategy
+        server_var.prepare()  # create loader/model/optimizer/loss, etc.
         self.__attach_event_handler(server_var)
         server_var.owner_nodes = self.fed_runner.server_node  # Two way binding
         server_var.set_device(device)
         self.fed_runner.server_node.node_var = server_var
         self.fed_runner.server_node.prepare_strategy()
-        # server_var.prepare_strategy_only()
         self.fed_runner.server_node.node_var = server_var
 
-        # Load data
+        # Load data (train loader sits in server_var.data_loader)
         train_loader = server_var.data_loader
 
-        # Non-IID handler (decoupled): use the YAML-provided count matrix directly
+        # Feature-shifted handler: prefer explicit counts from YAML; otherwise split evenly
         counts = server_var.data_distribution
-        # Partition base loader using explicit counts; return CustomDatasets
-        partitioner = SkewedLongtailPartitioner(train_loader.data_loader)
-        part_args = SkewedLongtailArgs(
+        partitioner = FeatureShiftedPartitioner(train_loader.data_loader)
+        part_args = FeatureShiftedArgs(
             batch_size=64, shuffle=True, num_workers=0, return_loaders=False
         )
-        allocated_noniid_data = partitioner.partition(counts, part_args)
 
-        for i in range(len(allocated_noniid_data)):
+        allocated_data = None
+        try:
+            if isinstance(counts, list) and len(counts) > 0 and isinstance(counts[0], list):
+                allocated_data = partitioner.partition_from_counts(counts, part_args)
+        except Exception as ex:
+            console.warn(f"Feature-shifted explicit counts failed: {ex}")
+            allocated_data = None
+
+        if allocated_data is None:
+            # Fallback to an even per-label split across clients
+            num_clients = len(self.fed_runner.client_node_list)
+            allocated_data = partitioner.partition_evenly(num_clients, part_args)
+
+        # Wrap each allocated CustomDataset in DatasetLoaderFactory for trainers
+        for i in range(len(allocated_data)):
             args = DatasetLoaderArgs(
                 {
                     "name": "custom",
@@ -78,21 +96,25 @@ class SampleAppEntry(AppEntry):
                     "is_download": True,
                     "is_load_train_set": True,
                     "is_load_test_set": True,
-                    "dataset": allocated_noniid_data[i],
+                    "dataset": allocated_data[i],
                 }
             )
-            allocated_noniid_data[i] = DatasetLoaderFactory().create(args)
+            allocated_data[i] = DatasetLoaderFactory().create(args)
 
         # Prepare each client node and var
         client_var_list = []
         for index, node in enumerate(self.fed_runner.client_node_list):
             client_var = FedNodeVars(self.client_yaml)
             # Set client-specific rank ratio if provided
-            client_var.config_dict["nn_model"]["rank_ratio"] = self.server_yaml[
-                "rank_distribution"
-            ]["rank_ratio_list"][index]
+            try:
+                client_var.config_dict["nn_model"]["rank_ratio"] = self.server_yaml[
+                    "rank_distribution"
+                ]["rank_ratio_list"][index]
+            except Exception:
+                pass
+
             client_var.prepare()
-            client_var.data_loader = allocated_noniid_data[index]
+            client_var.data_loader = allocated_data[index]
             client_var.data_sample_num = client_var.data_loader.data_sample_num
             client_var.set_device(device)
             client_var.trainer.set_train_loader(client_var.data_loader)
@@ -102,7 +124,6 @@ class SampleAppEntry(AppEntry):
             client_var.owner_nodes = node
             node.node_var = client_var
             node.prepare_strategy()
-            # client_var.prepare_strategy_only()
             client_var_list.append(client_var)
 
         self.fed_runner.run()
@@ -114,11 +135,9 @@ class SampleAppEntry(AppEntry):
         node_var.attach_event("on_prepare_data_loader", self.on_prepare_data_loader)
         node_var.attach_event("on_prepare_model", self.on_prepare_model)
         node_var.attach_event("on_prepare_loss_func", self.on_prepare_loss_func)
-        node_var.attach_event("on_prepare_optimizer", self.on_prepare_optimizer)  # attach EVENT
+        node_var.attach_event("on_prepare_optimizer", self.on_prepare_optimizer)
         node_var.attach_event("on_prepare_strategy", self.on_prepare_strategy)
         node_var.attach_event("on_prepare_extractor", self.on_prepare_extractor)
-        node_var.attach_event("on_prepare_model", self.on_prepare_model)
-        node_var.attach_event("on_prepare_loss_func", self.on_prepare_loss_func)
         node_var.attach_event(
             "on_prepare_data_distribution", self.on_prepare_data_distribution
         )
@@ -128,13 +147,11 @@ class SampleAppEntry(AppEntry):
         )
         node_var.attach_event("on_prepare_trainer", self.on_prepare_trainer)
         node_var.attach_event("on_prepare_aggregation", self.on_prepare_aggregation)
-        node_var.attach_event("on_prepare_extractor", self.on_prepare_extractor)
-        node_var.attach_event("on_prepare_strategy", self.on_prepare_strategy)
         node_var.attach_event(
             "on_prepare_training_logger", self.on_prepare_training_logger
         )
 
-    # Event handdlers
+    # Event handlers (stubs)
     # region
     def on_prepare_data_loader(self, args: FedNodeEventArgs):
         console.warn(f"TODO: on_prepare_data_loader event")

@@ -1,16 +1,14 @@
 """
-Skewed long-tail non-IID utilities.
+Skewed long-tail non-IID utilities (YAML-count-driven).
 
-This module provides a decoupled implementation for constructing and applying
-skewed long-tail non-IID client distributions from sparse specifications.
+This package exposes a partitioner that consumes an explicit client-by-class
+count matrix (typically loaded from YAML). It no longer uses a separate
+"spec" layer, since distributions are predefined in configs.
 """
 
-from .skewed_longtail_spec import SkewedLongtailSpec
 from .skewed_longtail_partitioner import SkewedLongtailPartitioner, SkewedLongtailArgs
 
 __all__ = [
-    "SkewedLongtailSpec",
     "SkewedLongtailPartitioner",
     "SkewedLongtailArgs",
 ]
-

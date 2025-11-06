@@ -10,7 +10,7 @@ from ...ml_data_loader import CustomDataset
 
 
 @dataclass
-class SkewedLongtailArgs:
+class FeatureShiftedArgs:
     """Arguments controlling the final per-client dataset or loader creation."""
 
     batch_size: int = 64
@@ -19,13 +19,15 @@ class SkewedLongtailArgs:
     return_loaders: bool = False  # If True, returns DataLoaders; otherwise CustomDataset
 
 
-class SkewedLongtailPartitioner:
+class FeatureShiftedPartitioner:
     """
-    Standalone skewed long-tail non-IID partitioner (count-matrix driven).
+    Partition a dataset so that each label/class is split as evenly as possible
+    across N clients ("feature-shifted" in the repo configs). Remainders are
+    assigned one-by-one to the last clients, matching the YAML patterns under
+    src/test/fl_lora_sample/yamls/data_distribution/*_feature_shift.yaml.
 
-    This refactor removes the separate "spec" layer and expects an explicit
-    client-by-class integer matrix (typically from YAML). The partitioner
-    allocates exactly those sample counts per client/label.
+    The class can also consume an explicit client-by-class integer count matrix
+    and allocate data accordingly.
     """
 
     def __init__(self, base_loader: DataLoader):
@@ -51,10 +53,8 @@ class SkewedLongtailPartitioner:
         assert self._label_ids is not None
         return self._label_ids
 
+    # --- internals -----------------------------------------------------------------
     def _load_data(self) -> None:
-        """
-        Materialize the entire DataLoader into contiguous tensors for partitioning.
-        """
         images_list: List[torch.Tensor] = []
         labels_list: List[torch.Tensor] = []
         for images, labels in self._base_loader:
@@ -88,23 +88,46 @@ class SkewedLongtailPartitioner:
             idx_map[lbl] = idx[perm]
         return idx_map
 
+    # --- public API ----------------------------------------------------------------
+    def make_balanced_counts(self, num_clients: int) -> torch.Tensor:
+        """
+        Build a [num_clients, num_labels] integer count matrix that splits each
+        label as evenly as possible, assigning remainders to the last clients.
+        """
+        if num_clients <= 0:
+            raise ValueError("num_clients must be > 0")
+
+        avail = self._available_counts()
+        n_labels = len(avail)
+        counts = torch.zeros((num_clients, n_labels), dtype=torch.int64)
+
+        for j, total in enumerate(avail):
+            base = total // num_clients
+            rem = total % num_clients
+            if base > 0:
+                counts[:, j] = base
+            if rem > 0:
+                # Assign the +1 remainders to the last `rem` clients
+                counts[-rem:, j] += 1
+
+        return counts
+
     def partition_from_counts(
         self,
         counts: Sequence[Sequence[int]],
-        args: SkewedLongtailArgs | None = None,
+        args: FeatureShiftedArgs | None = None,
     ) -> List[CustomDataset] | List[DataLoader]:
         """
-        Partition according to an explicit client-by-class integer count matrix.
-
-        The column order is assumed to correspond to this dataset's `label_ids`
-        (typically sorted ascending).
+        Partition according to an explicit client-by-class count matrix. The
+        column order is assumed to correspond to this dataset's `label_ids`.
         """
         if args is None:
-            args = SkewedLongtailArgs()
+            args = FeatureShiftedArgs()
 
+        # Validate shape and convert to tensor
         mat = torch.as_tensor(counts, dtype=torch.int64)
         if mat.dim() != 2:
-            raise ValueError("counts must be 2D: [num_clients, num_labels]")
+            raise ValueError("counts must be a 2D matrix [num_clients, num_labels]")
         if mat.shape[1] != len(self.label_ids):
             raise ValueError(
                 f"counts has {mat.shape[1]} columns but dataset exposes {len(self.label_ids)} labels"
@@ -112,20 +135,12 @@ class SkewedLongtailPartitioner:
         if (mat < 0).any():
             raise ValueError("counts must be non-negative")
 
-        # Optional sanity: ensure we don't request more than available per label
-        avail = torch.tensor(self._available_counts(), dtype=torch.int64)
-        req = mat.sum(dim=0)
-        if (req > avail).any():
-            over_cols = (req > avail).nonzero(as_tuple=False).view(-1).tolist()
-            raise ValueError(
-                "Requested counts exceed available per label for columns: "
-                + ",".join(str(int(c)) for c in over_cols)
-            )
-
+        # Prepare per-label index pools and consume sequentially per client
         lbl_to_idx = self._label_indices()
         lbl_pos: Dict[int, int] = {lbl: 0 for lbl in self.label_ids}
 
         client_datasets: List[CustomDataset] = []
+
         for ci in range(mat.shape[0]):
             sel_indices: List[int] = []
             for col, lbl in enumerate(self.label_ids):
@@ -144,7 +159,7 @@ class SkewedLongtailPartitioner:
                 sel_indices.extend(take.tolist())
 
             if len(sel_indices) == 0:
-                # Keep alignment: return an empty dataset
+                # Return an empty dataset placeholder to keep alignment
                 empty_x = self.x_train[:0]
                 empty_y = self.y_train[:0]
                 ds = CustomDataset(empty_x, empty_y)
@@ -172,11 +187,15 @@ class SkewedLongtailPartitioner:
 
         return loaders
 
-    # Backward-friendly API name: accept counts matrix directly
-    def partition(
+    def partition_evenly(
         self,
-        counts: Sequence[Sequence[int]],
-        args: SkewedLongtailArgs | None = None,
+        num_clients: int,
+        args: FeatureShiftedArgs | None = None,
     ) -> List[CustomDataset] | List[DataLoader]:
-        return self.partition_from_counts(counts, args=args)
+        """
+        Convenience wrapper that builds the balanced counts (with remainder
+        handling) and partitions the dataset accordingly.
+        """
+        counts = self.make_balanced_counts(num_clients)
+        return self.partition_from_counts(counts.tolist(), args=args)
 
