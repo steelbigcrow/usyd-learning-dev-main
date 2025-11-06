@@ -1,5 +1,10 @@
+'''
+pip install -U pip
+pip install torch torchvision datasets torchtext colorama certifi scipy tensorflow-datasets scikit-learn
+export SSL_CERT_FILE=$(python -c 'import certifi; print(certifi.where())')
+python src/unittest_ml/unittest_data_loader.py
+'''
 from __future__ import annotations
-
 
 # Init startup path, change current path to test py file folder 
 #-----------------------------------------------------------------
@@ -15,6 +20,15 @@ def after_create_fn(loader: DatasetLoader):
     console.info(f"\nAfter create fn object: {loader}")
     return
 
+def simple_text_collate_fn(batch):
+    # batch: List[(label:int, text:str)]
+    try:
+        import torch
+        labels, texts = zip(*batch)
+        return torch.tensor(labels), list(texts)
+    except Exception:
+        return batch
+    
 def test_dataset_loader(args, dataset_type):
     args.dataset_type = dataset_type
     args.root = "../../../.dataset"
@@ -52,7 +66,23 @@ def main():
 
     args.split = 'train'
     test_dataset_loader(args, "stl10")
-
+    args.text_collate_fn = simple_text_collate_fn
+    test_dataset_loader(args, "svhn")
+    test_dataset_loader(args, "rotten_tomatoes")
+    test_dataset_loader(args, "emotion")
+    test_dataset_loader(args, "poem_sentiment")
+    test_dataset_loader(args, "clinc_oos")
+    test_dataset_loader(args, "cola")
+    test_dataset_loader(args, "mrpc")
+    args.split = 'train'
+    test_dataset_loader(args, "flowers102")
+    test_dataset_loader(args, "stl10")
+    args.split = 'trainval' 
+    test_dataset_loader(args, "oxford_pets")
+    if hasattr(args, "split"):
+        delattr(args, "split") 
+    args.is_train = True
+    test_dataset_loader(args, "usps")
     # args.split = 'train'
     # test_dataset_loader(args, "imagenet")
 

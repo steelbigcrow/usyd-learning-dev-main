@@ -91,5 +91,33 @@ class DatasetLoaderFactory:
             case "custom":
                 from .loader._dataset_loader_custom import DatasetLoader_Custom
                 return DatasetLoader_Custom().create(data_loader_args, fn)
+            case "cola":
+                from .loader._dataset_loader_cola import DatasetLoader_CoLA
+                return DatasetLoader_CoLA().create(data_loader_args, fn)
+            case "mrpc":
+                from .loader._dataset_loader_mrpc import DatasetLoader_MRPC
+                return DatasetLoader_MRPC().create(data_loader_args, fn)
+            case "rotten_tomatoes":
+                from .loader._dataset_loader_rotten_tomatoes import DatasetLoader_RottenTomatoes
+                return DatasetLoader_RottenTomatoes().create(data_loader_args, fn)
+            case "emotion":
+                from .loader._dataset_loader_emotion import DatasetLoader_Emotion
+                return DatasetLoader_Emotion().create(data_loader_args, fn)
+            case "clinc_oos":
+                from .loader._dataset_loader_clinc_oos import DatasetLoader_ClincOOS
+                return DatasetLoader_ClincOOS().create(data_loader_args, fn)
+            case "poem_sentiment":
+                from .loader._dataset_loader_poem_sentiment import DatasetLoader_PoemSentiment
+                return DatasetLoader_PoemSentiment().create(data_loader_args, fn)
+            case "flowers102":
+                from .loader._dataset_loader_flowers102 import DatasetLoader_Flowers102
+                return DatasetLoader_Flowers102().create(data_loader_args, fn)
+            case "oxford_pets":
+                from .loader._dataset_loader_oxford_pets import DatasetLoader_OxfordPets
+                return DatasetLoader_OxfordPets().create(data_loader_args, fn)
+            case "usps":
+                from .loader._dataset_loader_usps import DatasetLoader_USPS
+                return DatasetLoader_USPS().create(data_loader_args, fn)
 
+     
         raise ValueError(f"Datasdet type '{data_loader_args.dataset_type}' not support.")
