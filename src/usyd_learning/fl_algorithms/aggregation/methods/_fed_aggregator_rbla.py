@@ -36,6 +36,27 @@ class FedAggregator_RBLA(AbstractFedAggregator):
         """If you still pass {'state_dicts': [...], 'weights': [...]}, keep it."""
         self._aggregation_data_dict = aggregation_data_dict
 
+    # ---------- Safety helpers ----------
+    @staticmethod
+    def _sanitize_state_dict(state_dict: dict) -> tuple[dict, int]:
+        """
+        Replace any NaN/Inf tensor values with zeros before aggregation.
+        Returns (sanitized_state_dict, replaced_value_count).
+        """
+        cleaned: dict[str, torch.Tensor] = {}
+        replaced = 0
+        for key, value in state_dict.items():
+            if torch.is_tensor(value) and (value.is_floating_point() or value.is_complex()):
+                finite = torch.isfinite(value)
+                if not torch.all(finite):
+                    cleaned[key] = torch.nan_to_num(value, nan=0.0, posinf=0.0, neginf=0.0)
+                    replaced += int((~finite).sum().item())
+                else:
+                    cleaned[key] = value
+            else:
+                cleaned[key] = value
+        return cleaned, replaced
+
     # ---------- Aggregation lifecycle ----------
     def _before_aggregation(self) -> None:
         # console.debug(f"[RBLA] Starting aggregation with {len(self._aggregation_data_list)} clients...")
@@ -84,6 +105,27 @@ class FedAggregator_RBLA(AbstractFedAggregator):
                     console.debug(f"  Client {i}: weight={w:.4f} ({(w / total_w * 100) if total_w else 0:.1f}%)")
         except Exception:
             pass
+
+        # Scrub NaN/Inf payloads before aggregation to avoid contaminating the global model
+        sanitized_state_dicts: list[dict] = []
+        bad_clients = 0
+        bad_values_total = 0
+        for idx, sd in enumerate(state_dicts):
+            sanitized, replaced = self._sanitize_state_dict(sd)
+            if replaced > 0:
+                bad_clients += 1
+                bad_values_total += replaced
+                console.warn(
+                    f"[RBLA] Client update #{idx} contained {replaced} non-finite values; "
+                    "replaced with zeros prior to aggregation."
+                )
+            sanitized_state_dicts.append(sanitized)
+        if bad_clients > 0:
+            console.warn(
+                f"[RBLA] Sanitized {bad_values_total} parameters across {bad_clients} client updates to keep "
+                "aggregation stable."
+            )
+        state_dicts = sanitized_state_dicts
 
         # move to device
         dev = self._device
@@ -176,7 +218,7 @@ class FedAggregator_RBLA(AbstractFedAggregator):
 
         # NaN-masked averaging: ignore padded positions when averaging
         valid_mask = ~torch.isnan(padded)
-        padded = torch.nan_to_num(padded, nan=0.0)
+        padded = torch.nan_to_num(padded, nan=0.0, posinf=0.0, neginf=0.0)
         weighted_sum = (padded * weights_tensor).sum(dim=0)
         weight_mask = valid_mask * weights_tensor
         total_weight = weight_mask.sum(dim=0)
@@ -217,7 +259,7 @@ class FedAggregator_RBLA(AbstractFedAggregator):
                 stacked = FedAggregator_RBLA.pad_vectors_to_max_len(vecs)  # (N, Rmax)
                 wt = torch.as_tensor(weights, dtype=stacked.dtype, device=stacked.device).view(-1, 1)
                 valid = ~torch.isnan(stacked)
-                stacked = torch.nan_to_num(stacked, nan=0.0)
+                stacked = torch.nan_to_num(stacked, nan=0.0, posinf=0.0, neginf=0.0)
                 weighted_sum = (stacked * wt).sum(dim=0)
                 total_w = (valid * wt).sum(dim=0)
                 total_w[total_w == 0] = 1.0
@@ -225,8 +267,10 @@ class FedAggregator_RBLA(AbstractFedAggregator):
                 continue
             if key.endswith(".rank_rr"):
                 vals = [float(v.detach().view(-1)[0].item()) if torch.is_tensor(v) else float(v) for v in values]
+                vals_tensor = torch.as_tensor(vals, dtype=torch.float32)
+                vals_tensor = torch.nan_to_num(vals_tensor, nan=0.0, posinf=0.0, neginf=0.0)
                 wt = torch.as_tensor(weights, dtype=torch.float32)
-                num = (wt * torch.tensor(vals, dtype=torch.float32)).sum()
+                num = (wt * vals_tensor).sum()
                 den = wt.sum() if float(wt.sum()) != 0.0 else torch.tensor(1.0)
                 aggregated[key] = torch.as_tensor(num / den, dtype=values[0].dtype, device=values[0].device)
                 continue
@@ -235,6 +279,7 @@ class FedAggregator_RBLA(AbstractFedAggregator):
                 aggregated[key] = FedAggregator_RBLA.aggregate_lora_tensors(values, weights)
             else:
                 stacked = torch.stack(values, dim=0)  # (N, ...)
+                stacked = torch.nan_to_num(stacked, nan=0.0, posinf=0.0, neginf=0.0)
                 # weights reshape: (N, 1, 1, ..., 1)
                 view_shape = (len(weights),) + (1,) * (stacked.dim() - 1)
                 weight_tensor = torch.as_tensor(weights, dtype=stacked.dtype, device=stacked.device).view(*view_shape)

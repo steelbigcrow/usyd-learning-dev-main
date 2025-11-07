@@ -23,6 +23,19 @@ class ModelTrainer_Standard(ModelTrainer):
         
         self.device = ModelUtils.accelerator_device()
         self.model: nn.Module = trainer_args.model
+        clip_cfg = None
+        try:
+            clip_cfg = trainer_args.get("max_grad_norm", 5.0)
+        except Exception:
+            clip_cfg = 5.0
+        self.max_grad_norm = None
+        try:
+            if clip_cfg not in (None, False):
+                clip_val = float(clip_cfg)
+                if clip_val > 0:
+                    self.max_grad_norm = clip_val
+        except (TypeError, ValueError):
+            self.max_grad_norm = None
         return
 
     def set_model(self, model: nn.Module):
@@ -62,22 +75,45 @@ class ModelTrainer_Standard(ModelTrainer):
         )
 
         for inputs, labels in loop:
-            total_batch += 1
             inputs = inputs.to(ta.device)
             labels = labels.to(ta.device)
 
             ta.optimizer.zero_grad()
             outputs = ta.model(inputs)
             loss = ta.loss_func(outputs, labels)
+            if not torch.isfinite(loss).item():
+                console.warn(
+                    "[Trainer] Non-finite loss detected; skipping batch and scrubbing model parameters."
+                )
+                self._scrub_model_params(ta.model)
+                continue
+
             loss.backward()
+
+            if not self._grads_are_finite(ta.model):
+                console.warn(
+                    "[Trainer] Non-finite gradients detected; skipping optimizer step for this batch."
+                )
+                ta.optimizer.zero_grad()
+                self._scrub_model_params(ta.model)
+                continue
+
+            if self.max_grad_norm and self.max_grad_norm > 0:
+                torch.nn.utils.clip_grad_norm_(ta.model.parameters(), self.max_grad_norm)
+
             ta.optimizer.step()
+            cleaned = self._scrub_model_params(ta.model)
+            if cleaned > 0:
+                console.warn(f"[Trainer] Scrubbed {cleaned} non-finite parameter values post-update.")
 
             running_loss += float(loss.item())
+            total_batch += 1
 
+            avg_display = running_loss / max(total_batch, 1)
             loop.set_postfix(
                 batch=total_batch,
                 loss=f"{loss.item():.4f}",
-                avg_loss=f"{running_loss/total_batch:.4f}",
+                avg_loss=f"{avg_display:.4f}",
                 lr=ta.optimizer.param_groups[0]["lr"]
             )
 
@@ -122,3 +158,27 @@ class ModelTrainer_Standard(ModelTrainer):
         train_stats["avg_loss"] = train_stats["train_loss_sum"] / epochs
         train_stats["sqrt_train_loss_power_two_sum"] = math.sqrt(train_stats["train_loss_power_two_sum"])
         return self.trainer_args.model.state_dict(), train_stats
+
+    # ---------- internal helpers ----------
+    @staticmethod
+    def _grads_are_finite(model: nn.Module) -> bool:
+        for param in model.parameters():
+            grad = param.grad
+            if grad is None:
+                continue
+            if (grad.is_floating_point() or grad.is_complex()) and not torch.isfinite(grad).all().item():
+                return False
+        return True
+
+    @staticmethod
+    def _scrub_model_params(model: nn.Module) -> int:
+        replaced = 0
+        for param in model.parameters():
+            if not (param.is_floating_point() or param.is_complex()):
+                continue
+            finite_mask = torch.isfinite(param)
+            if finite_mask.all().item():
+                continue
+            replaced += int((~finite_mask).sum().item())
+            torch.nan_to_num_(param, nan=0.0, posinf=0.0, neginf=0.0)
+        return replaced

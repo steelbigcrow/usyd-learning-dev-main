@@ -230,16 +230,16 @@ LoRA 数据集子目录共有 4 个：
 提醒：如果某个阶段的训练文件已经存在，那么就不需要重新跑这个阶段的训练了。
 
 阶段 01：`lora_fmnist / RBLA / Heterogeneous Rank`
-- [ ] feature_shift -> `rbla_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `rbla_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`
-- [ ] one_label    -> `rbla_fmnist_one_label_heterogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] feature_shift -> `rbla_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `rbla_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`
+- [x] one_label    -> `rbla_fmnist_one_label_heterogeneous_round250_epoch1.yaml`
+- [x] 阶段完成
 
 阶段 02：`lora_fmnist / RBLA / Homogeneous Rank`
-- [ ] feature_shift -> `rbla_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `rbla_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
-- [ ] one_label    -> `rbla_fmnist_one_label_homogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] feature_shift -> `rbla_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `rbla_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
+- [x] one_label    -> `rbla_fmnist_one_label_homogeneous_round250_epoch1.yaml`
+- [x] 阶段完成
 
 阶段 03：`lora_fmnist / SP / Heterogeneous Rank`
 - [ ] feature_shift -> `sp_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
@@ -248,8 +248,8 @@ LoRA 数据集子目录共有 4 个：
 - [ ] 阶段完成
 
 阶段 04：`lora_fmnist / SP / Homogeneous Rank`
-- [ ] feature_shift -> `sp_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `sp_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
+- [x] feature_shift -> `sp_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `sp_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `sp_fmnist_one_label_homogeneous_round250_epoch1.yaml`
 - [ ] 阶段完成
 
@@ -260,8 +260,8 @@ LoRA 数据集子目录共有 4 个：
 - [ ] 阶段完成
 
 阶段 06：`lora_fmnist / ZP / Homogeneous Rank`
-- [ ] feature_shift -> `zp_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `zp_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
+- [x] feature_shift -> `zp_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `zp_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `zp_fmnist_one_label_homogeneous_round250_epoch1.yaml`
 - [ ] 阶段完成
 
