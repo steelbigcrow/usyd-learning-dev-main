@@ -243,63 +243,63 @@ LoRA 数据集子目录共有 4 个：
 
 阶段 03：`lora_fmnist / SP / Heterogeneous Rank`
 - [ ] feature_shift -> `sp_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `sp_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `sp_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `sp_fmnist_one_label_heterogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] 阶段完成
 
 阶段 04：`lora_fmnist / SP / Homogeneous Rank`
 - [x] feature_shift -> `sp_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
 - [x] long_tail    -> `sp_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
-- [ ] one_label    -> `sp_fmnist_one_label_homogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] one_label    -> `sp_fmnist_one_label_homogeneous_round250_epoch1.yaml`
+- [x] 阶段完成
 
 阶段 05：`lora_fmnist / ZP / Heterogeneous Rank`
 - [x] feature_shift -> `zp_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
 - [x] long_tail    -> `zp_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `zp_fmnist_one_label_heterogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] 阶段完成
 
 阶段 06：`lora_fmnist / ZP / Homogeneous Rank`
 - [x] feature_shift -> `zp_fmnist_feature_shift_homogeneous_round60_epoch1.yaml`
 - [x] long_tail    -> `zp_fmnist_long_tail_homogeneous_round60_epoch1.yaml`
-- [ ] one_label    -> `zp_fmnist_one_label_homogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] one_label    -> `zp_fmnist_one_label_homogeneous_round250_epoch1.yaml`
+- [x] 阶段完成
 
 阶段 07：`lora_kmnist / RBLA / Heterogeneous Rank`
 - [ ] feature_shift -> `rbla_kmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `rbla_kmnist_long_tail_heterogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `rbla_kmnist_long_tail_heterogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `rbla_kmnist_one_label_heterogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] 阶段完成
 
 阶段 08：`lora_kmnist / RBLA / Homogeneous Rank`
-- [ ] feature_shift -> `rbla_kmnist_feature_shift_homogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `rbla_kmnist_long_tail_homogeneous_round60_epoch1.yaml`
-- [ ] one_label    -> `rbla_kmnist_one_label_homogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] feature_shift -> `rbla_kmnist_feature_shift_homogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `rbla_kmnist_long_tail_homogeneous_round60_epoch1.yaml`
+- [x] one_label    -> `rbla_kmnist_one_label_homogeneous_round250_epoch1.yaml`
+- [x] 阶段完成
 
 阶段 09：`lora_kmnist / SP / Heterogeneous Rank`
 - [ ] feature_shift -> `sp_kmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `sp_kmnist_long_tail_heterogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `sp_kmnist_long_tail_heterogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `sp_kmnist_one_label_heterogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] 阶段完成
 
 阶段 10：`lora_kmnist / SP / Homogeneous Rank`
-- [ ] feature_shift -> `sp_kmnist_feature_shift_homogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `sp_kmnist_long_tail_homogeneous_round60_epoch1.yaml`
-- [ ] one_label    -> `sp_kmnist_one_label_homogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] feature_shift -> `sp_kmnist_feature_shift_homogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `sp_kmnist_long_tail_homogeneous_round60_epoch1.yaml`
+- [x] one_label    -> `sp_kmnist_one_label_homogeneous_round250_epoch1.yaml`
+- [x] 阶段完成
 
 阶段 11：`lora_kmnist / ZP / Heterogeneous Rank`
 - [ ] feature_shift -> `zp_kmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `zp_kmnist_long_tail_heterogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `zp_kmnist_long_tail_heterogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `zp_kmnist_one_label_heterogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] 阶段完成
 
 阶段 12：`lora_kmnist / ZP / Homogeneous Rank`
-- [ ] feature_shift -> `zp_kmnist_feature_shift_homogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `zp_kmnist_long_tail_homogeneous_round60_epoch1.yaml`
-- [ ] one_label    -> `zp_kmnist_one_label_homogeneous_round250_epoch1.yaml`
-- [ ] 阶段完成
+- [x] feature_shift -> `zp_kmnist_feature_shift_homogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `zp_kmnist_long_tail_homogeneous_round60_epoch1.yaml`
+- [x] one_label    -> `zp_kmnist_one_label_homogeneous_round250_epoch1.yaml`
+- [x] 阶段完成
 
 阶段 13：`lora_mnist / RBLA / Heterogeneous Rank`
 - [ ] feature_shift -> `rbla_mnist_feature_shift_heterogeneous_round60_epoch1.yaml`
