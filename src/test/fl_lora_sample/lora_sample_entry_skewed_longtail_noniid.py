@@ -26,6 +26,19 @@ class SampleAppEntry(AppEntry):
     # override
     def run(self, device: str = "cpu", training_rounds: int = 50):
 
+        # Set deterministic seeds early (before any model/data construction)
+        try:
+            import random
+            import numpy as np
+            import torch
+            random.seed(42)
+            np.random.seed(42)
+            torch.manual_seed(42)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(42)
+        except Exception:
+            pass
+
         # Yamls - if yamls are None, get yaml from app config file automatically
         if self.runner_yaml is None:
             self.runner_yaml = self.get_app_object("runner")
@@ -64,6 +77,12 @@ class SampleAppEntry(AppEntry):
         part_args = SkewedLongtailArgs(
             batch_size=64, shuffle=True, num_workers=0, return_loaders=False
         )
+        # Skewed-longtail uses explicit counts; ensure any internal randomness is seeded
+        try:
+            import torch as _torch
+            _torch.manual_seed(42)
+        except Exception:
+            pass
         allocated_noniid_data = partitioner.partition(counts, part_args)
 
         for i in range(len(allocated_noniid_data)):
@@ -104,6 +123,13 @@ class SampleAppEntry(AppEntry):
             node.prepare_strategy()
             # client_var.prepare_strategy_only()
             client_var_list.append(client_var)
+
+        # Reset RNG before training so DataLoader shuffles align across runs
+        try:
+            import torch as _torch
+            _torch.manual_seed(42)
+        except Exception:
+            pass
 
         self.fed_runner.run()
 

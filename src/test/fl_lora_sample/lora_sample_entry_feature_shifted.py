@@ -33,6 +33,19 @@ class SampleAppEntry(AppEntry):
     # override
     def run(self, device: str = "cpu", training_rounds: int = 50):
 
+        # Set deterministic seeds early (before any model/data construction)
+        try:
+            import random
+            import numpy as np
+            import torch
+            random.seed(42)
+            np.random.seed(42)
+            torch.manual_seed(42)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(42)
+        except Exception:
+            pass
+
         # Yamls - if yamls are None, get yaml from app config file automatically
         if self.runner_yaml is None:
             self.runner_yaml = self.get_app_object("runner")
@@ -72,6 +85,12 @@ class SampleAppEntry(AppEntry):
 
         allocated_data = None
         try:
+            # Ensure label-wise shuffling inside the partitioner is deterministic
+            try:
+                import torch as _torch
+                _torch.manual_seed(42)
+            except Exception:
+                pass
             if isinstance(counts, list) and len(counts) > 0 and isinstance(counts[0], list):
                 allocated_data = partitioner.partition_from_counts(counts, part_args)
         except Exception as ex:
@@ -81,6 +100,11 @@ class SampleAppEntry(AppEntry):
         if allocated_data is None:
             # Fallback to an even per-label split across clients
             num_clients = len(self.fed_runner.client_node_list)
+            try:
+                import torch as _torch
+                _torch.manual_seed(42)
+            except Exception:
+                pass
             allocated_data = partitioner.partition_evenly(num_clients, part_args)
 
         # Wrap each allocated CustomDataset in DatasetLoaderFactory for trainers
@@ -125,6 +149,13 @@ class SampleAppEntry(AppEntry):
             node.node_var = client_var
             node.prepare_strategy()
             client_var_list.append(client_var)
+
+        # Reset RNG before training so DataLoader shuffles align across runs
+        try:
+            import torch as _torch
+            _torch.manual_seed(42)
+        except Exception:
+            pass
 
         self.fed_runner.run()
 
@@ -201,4 +232,3 @@ class SampleAppEntry(AppEntry):
         console.warn(f"TODO: on_prepare_training_logger event")
         return
     # endregion
-
