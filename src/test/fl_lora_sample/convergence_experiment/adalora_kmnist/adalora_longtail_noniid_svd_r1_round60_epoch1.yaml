@@ -106,6 +106,7 @@ yaml_folder_rank_distribution_files:
 - rank006.yaml: rank_distribution_006_homogeneous
 - rank007.yaml: rank_distribution_007_homogeneous
 - rank1.yaml: rank_distribution_1_heterogeneous
+- rank1_to_01.yaml: rank_distribution_1_to_01_heterogeneous
 
 yaml_combination:
   runner:

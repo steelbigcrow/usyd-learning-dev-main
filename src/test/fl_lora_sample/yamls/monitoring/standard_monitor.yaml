@@ -10,11 +10,12 @@ monitoring:
   adalora:
     enabled: auto
     snapshot: epoch
+    dump_matrices: true
   aggregation:
     common: {enabled: true}
     fedavg: {enabled: true, layer_delta_sample: 4}
     svd:    {enabled: true, energy_sample_layers: 0}
-    rbla:   {enabled: true, track_pad_slice: true}
+    rbla:   {enabled: true, track_pad_slice: true, dump_matrices: true}
     sp:     {enabled: true, apply_weight_mode_metrics: false}
     zeropad:{enabled: true}
 

@@ -5,9 +5,9 @@ trainer:
   # AdaLoRA configuration (fields forwarded to peft.AdaLoraConfig)
   adalora:
     # Base LoRA-style knobs（提高初始/目标秩以增加容量）
-    r: 16            # 原 8 → 16，基础秩/最大秩上限
-    init_r: 16       # 新增：初始秩，提高早期有效通道数
-    target_r: 12     # 新增：目标秩，训练后期的期望秩（>8）
+    r: 16            # 基础秩/最大秩上限（不变）
+    init_r: 8        # 初始秩
+    target_r: 6      # 目标秩（训练后期的期望秩）
     lora_alpha: 16
     lora_dropout: 0.05
     total_step: 1000

@@ -396,6 +396,43 @@ class FedNodeVars(ObjectMap, EventHandler, KeyValueArgs):
         if "training_logger" in self.config_dict:
             self.training_logger = TrainingLogger(self.config_dict["training_logger"])
 
+            # Auto-tag result filename prefix with key run identifiers
+            # Format: <mode>-<dataset>-<distribution>-<aggregation>
+            try:
+                # mode: adalora | lora | nonlora
+                trainer_type = str(self.config_dict.get("trainer", {}).get("trainer_type", "standard")).lower()
+                if trainer_type == "adalora":
+                    mode = "adalora"
+                else:
+                    nn_name = str(self.config_dict.get("nn_model", {}).get("name", "")).lower()
+                    mode = "lora" if "lora" in nn_name else "nonlora"
+
+                # dataset
+                dataset = str(self.config_dict.get("data_loader", {}).get("name", "dataset")).lower()
+
+                # distribution type (prefer explicit 'use' from yaml; fallback to global name)
+                dist_cfg = self.config_dict.get("data_distribution", {})
+                dist = str(dist_cfg.get("use", "")).lower()
+                if not dist:
+                    from ..ml_data_process import DataDistribution
+
+                    dist = str(DataDistribution.distribution_name()).lower()
+
+                # aggregation method from yaml
+                agg = str(self.config_dict.get("aggregation", {}).get("method", "agg")).lower()
+
+                # Compose prefix and assign
+                auto_prefix = f"{mode}-{dataset}-{dist}-{agg}"
+                # If user also provided a prefix, prepend it
+                user_prefix = str(self.config_dict.get("training_logger", {}).get("prefix", "")).strip()
+                if user_prefix:
+                    auto_prefix = f"{user_prefix}-{auto_prefix}"
+
+                self.training_logger.prefix = auto_prefix
+            except Exception:
+                # Best-effort tagging; ignore failures to avoid blocking run
+                pass
+
         # Raise event
         args = FedNodeEventArgs("training_logger", self.config_dict).with_sender(self).with_data(self.training_logger)
         self.raise_event("on_prepare_training_logger", args)

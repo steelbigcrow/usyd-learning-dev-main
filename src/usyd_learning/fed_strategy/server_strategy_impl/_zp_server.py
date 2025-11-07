@@ -34,36 +34,57 @@ class ZpServerStrategy(ServerStrategy):
         return self
 
     def aggregation(self) -> dict:
-        # Convert PEFT/AdaLoRA -> plain LoRA for robust aggregation
-        from ...ml_algorithms.adalora.adalora_rbla_bridge import (
-            peft_to_plain_lora_shrunk,
-            plain_lora_to_peft,
-            select_template_with_max_rank,
-        )
-
+        # Support both LoRA/AdaLoRA clients and plain non‑LoRA clients.
         client_updates = self._obj.node_var.client_updates
 
-        preprocessed = []
-        for item in client_updates:
-            sd_peft = item["updated_weights"]
-            sd_plain = peft_to_plain_lora_shrunk(sd_peft)
-            preprocessed.append({
-                "updated_weights": sd_plain,
-                "train_record": item["train_record"],
-            })
+        def _is_lora_state_dict(sd: dict) -> bool:
+            try:
+                for k in sd.keys():
+                    if (".lora_A" in k) or (".lora_B" in k):
+                        return True
+            except Exception:
+                pass
+            return False
 
-        # Aggregate using Zero-Pad on plain-LoRA keys
+        is_lora = False
+        if isinstance(client_updates, list) and len(client_updates) > 0:
+            first_sd = client_updates[0]["updated_weights"]
+            is_lora = _is_lora_state_dict(first_sd)
+
         aggregator = self._obj.node_var.aggregation_method
-        aggregated_plain = aggregator.aggregate(preprocessed)
 
-        # Map aggregated plain-LoRA back to a PEFT-shaped state_dict using a template
-        template_sd = select_template_with_max_rank(client_updates)
-        aggregated_peft = plain_lora_to_peft(aggregated_plain, template_sd)
+        if is_lora:
+            # Convert PEFT/AdaLoRA -> plain LoRA for robust aggregation
+            from ...ml_algorithms.adalora.adalora_rbla_bridge import (
+                peft_to_plain_lora_shrunk,
+                plain_lora_to_peft,
+                select_template_with_max_rank,
+            )
+
+            preprocessed = []
+            for item in client_updates:
+                sd_peft = item["updated_weights"]
+                sd_plain = peft_to_plain_lora_shrunk(sd_peft)
+                preprocessed.append({
+                    "updated_weights": sd_plain,
+                    "train_record": item["train_record"],
+                })
+
+            aggregated_plain = aggregator.aggregate(preprocessed)
+            template_sd = select_template_with_max_rank(client_updates)
+            aggregated = plain_lora_to_peft(aggregated_plain, template_sd)
+        else:
+            preprocessed = []
+            for item in client_updates:
+                preprocessed.append({
+                    "updated_weights": item["updated_weights"],
+                    "train_record": item["train_record"],
+                })
+            aggregated = aggregator.aggregate(preprocessed)
 
         # Keep the aggregated weight for broadcasting
-        self._obj.node_var.aggregated_weight = aggregated_peft
-        # Also make it the model_weight so broadcast() sends the latest global weight
-        self._obj.node_var.model_weight = aggregated_peft
+        self._obj.node_var.aggregated_weight = aggregated
+        self._obj.node_var.model_weight = aggregated
         return
 
     def select_clients(self, available_clients) -> list:
@@ -79,40 +100,45 @@ class ZpServerStrategy(ServerStrategy):
         self._obj.node_var.client_updates = client_updates
 
     def apply_weight(self):
-        # Aggregated weight is kept in PEFT shape; adapt to evaluator model (plain LoRA keys)
-        try:
-            evaluator: ModelEvaluator = self._obj.node_var.model_evaluator
-            target_sd = evaluator.model.state_dict()
+        # Adapt aggregated weights for evaluator depending on LoRA presence
+        evaluator: ModelEvaluator = self._obj.node_var.model_evaluator
+        target_sd = evaluator.model.state_dict()
 
-            # Map PEFT keys -> plain LoRA keys aligned to target key names
-            plain_mapped = LoRAUtils.map_peft_to_lora_state_dict(
-                target_state_dict=target_sd,
-                peft_state_dict=self._obj.node_var.aggregated_weight,
-            )
-
-            # Ensure LoRA A/B shapes match evaluator's ranks (slice/pad as needed)
-            adapted_local = LoRAUtils.broadcast_lora_state_dict(
-                global_sd=plain_mapped,
-                local_sd=target_sd,
-            )
-
-            # If using AdaLoRA trainer, compensate for alpha/r runtime scaling so that
-            # the effective delta applied at inference equals the aggregated W_g.
+        def _is_lora_state_dict(sd: dict) -> bool:
             try:
-                trainer_cfg = self._obj.node_var.config_dict.get("trainer", {})
-                if str(trainer_cfg.get("trainer_type", "")).lower() == "adalora":
-                    alpha = float(trainer_cfg.get("adalora", {}).get("lora_alpha", 1.0))
-                    adapted_local = LoRAUtils.compensate_for_adalora_scaling(
-                        adapted_local,
-                        lora_alpha=alpha,
-                    )
+                for k in sd.keys():
+                    if (".lora_A" in k) or (".lora_B" in k):
+                        return True
             except Exception:
-                # Best-effort; do not block apply_weight on compensation errors
                 pass
+            return False
 
-            evaluator.update_model(adapted_local)
-        except Exception as e:
-            raise e
+        if _is_lora_state_dict(self._obj.node_var.aggregated_weight):
+            try:
+                # Map PEFT keys -> plain LoRA keys aligned to target key names
+                plain_mapped = LoRAUtils.map_peft_to_lora_state_dict(
+                    target_state_dict=target_sd,
+                    peft_state_dict=self._obj.node_var.aggregated_weight,
+                )
+                adapted_local = LoRAUtils.broadcast_lora_state_dict(
+                    global_sd=plain_mapped,
+                    local_sd=target_sd,
+                )
+                # AdaLoRA compensation if needed
+                try:
+                    trainer_cfg = self._obj.node_var.config_dict.get("trainer", {})
+                    if str(trainer_cfg.get("trainer_type", "")).lower() == "adalora":
+                        alpha = float(trainer_cfg.get("adalora", {}).get("lora_alpha", 1.0))
+                        from usyd_learning.ml_algorithms.lora.lora_utils import LoRAUtils as _LU
+                        adapted_local = _LU.compensate_for_adalora_scaling(adapted_local, lora_alpha=alpha)
+                except Exception:
+                    pass
+                evaluator.update_model(adapted_local)
+            except Exception as e:
+                raise e
+        else:
+            # Plain model: load directly
+            evaluator.update_model(self._obj.node_var.aggregated_weight)
         return
 
     def broadcast(self) -> None:

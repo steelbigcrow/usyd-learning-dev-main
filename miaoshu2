@@ -1,0 +1,23 @@
+Deployment
+5.7.1 Double-imbalaced distribution
+Regarding the double_imbalance module, you only need to call my data partitioning function in the entry script to partition the loaded dataset into a double_imbalanced data distribution according to my logic.
+After the data partitioning module handles double imbalance, it produces client_loaders. Then, the runner loads these client-specific datasets into the client.
+In this way, the double-imbalanced data distribution pattern can be successfully invoked by the testbed.
+5.7.2 AdaLoRA
+5.7.2.1 Testbed Analysis
+The overall process of the testbed is as follows: the configuration file is given to the factory, the factory produces components and strategy components, the strategy instructs the components to execute the training process, and the components call the algorithm logic to do the work.
+5.7.2.2 Implementation
+We found that the loralib version was relatively outdated and poorly maintained, which may cause incompatibility issues with other Python packages (such as NumPy). We decided to implement the AdaLoRA algorithm through peft package powered by Hugging Face.
+During the integration process, in order to conform to the testbed framework, we further refactored the code and decoupled it. Based on our analysis, we divided the AdaLoRA module into three levels when integrating.
+Model Trainer
+In fact, according to our background research, the AdaLoRA training process is no different from that of ordinary model training, so we can directly inherit from _model_trainer_standard.py.
+The file `src/usyd_learning/model_trainer/trainer/_model_trainer_adalora.py` inherits from `src/usyd_learning/model_trainer/trainer/_model_trainer_standard.py`. It is responsible for performing basic training operations, and not for implementing the AdaLoRA algorithm. Therefore, the methods related to AdaLoRA are not rewritten in _model_trainer_adalora.py. In fact, it only calls the training methods in _model_trainer_standard.py, thus replicating the standard model training process.
+Model
+nn_model_adalora_mlp is an ordinary MLP model. First, it will instantiate the nn_model_adalora_mlp object. Then it calls `wrap_with_adalora(model, opts)` in `peft_adalora.py` to replace the layers in the MLP model with AdaLoRA layers. Specifically, it replaces the ordinary model with  AdaLoRA layers using `peft_model = get_peft_model(model, config)`. By wrapping a regular model as an AdaLoRA model and utilizing existing Strategy objects, integration can be achieved.
+ Registry
+The registry is used to link configuration files and factories. Once registration is complete, the configuration can be correctly identified by the factory and the corresponding object can be instantiated.
+Thus, since the modules were complete, we registered the model and the trainer with the model factory and trainer factory to connect the configuration file and testbed. The factory can then instantiate the module when it resolves the corresponding configuration.
+5.7.3 Heterogeneous Aggregation of LoRA modules
+
+Compatibility Conversion: Since the client's testbed implements LoRA, while the AdaLoRA modules use the peft library, we need to handle the LoRA and AdaLoRA layers during aggregation and distribution to ensure format consistency. We addressed this issue in adalora_rbla_bridge.py, and it is reused in SVD and Zero-padding.
+Integration Implementation: For SVD aggregation and zero-padding aggregation, we implemented SVD and zero-padding logic aggregation logic in the aggregator, and let the node strategy directly operate the aggregator to implement the corresponding aggregation logic.

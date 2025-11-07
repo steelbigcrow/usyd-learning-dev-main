@@ -55,16 +55,26 @@ class RblaRunnerStrategy(RunnerStrategy):
 
     def run(self) -> None:
         print("Running [RBLA] strategy...")
+        # Safe header composition: tolerate missing optional sections (e.g., rank_distribution in non-LoRA runs)
+        cfg = self.server_node.node_var.config_dict
+        rank_cfg = cfg.get('rank_distribution', None)
+        rank_str = "N/A"
+        try:
+            if isinstance(rank_cfg, dict) and 'rank_ratio_list' in rank_cfg:
+                rank_str = str(rank_cfg['rank_ratio_list'])
+        except Exception:
+            rank_str = "N/A"
+
         header_data = {
-            "general": self.server_node.node_var.config_dict['general'],
-            "aggregation": self.server_node.node_var.config_dict['aggregation']['method'],
-            "rank_distribution": str(self.server_node.node_var.config_dict['rank_distribution']['rank_ratio_list']),
-            'epoch': self.server_node.node_var.config_dict['training']['epochs'],
-            "dataset": self.server_node.node_var.config_dict['data_loader']['name'],
-            "batch_size": self.server_node.node_var.config_dict['data_loader']['batch_size'],
-            "model": self.server_node.node_var.config_dict['nn_model']['name'],
-            "loss_function": self.server_node.node_var.config_dict['loss_func']['type'],
-            "client_selection": self.server_node.node_var.config_dict['client_selection']
+            "general": cfg['general'],
+            "aggregation": cfg['aggregation']['method'],
+            "rank_distribution": rank_str,
+            'epoch': cfg['training']['epochs'],
+            "dataset": cfg['data_loader']['name'],
+            "batch_size": cfg['data_loader']['batch_size'],
+            "model": cfg['nn_model']['name'],
+            "loss_function": cfg['loss_func']['type'],
+            "client_selection": cfg['client_selection']
         }
         self.server_node.prepare(header_data, self.client_nodes)
         self.server_node.broadcast()

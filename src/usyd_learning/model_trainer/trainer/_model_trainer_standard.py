@@ -49,7 +49,8 @@ class ModelTrainer_Standard(ModelTrainer):
 
         total_epochs = getattr(ta, "total_epochs", getattr(ta, "epochs", None))
 
-        ta.model.to(self.device)
+        # Ensure model and inputs use the same device specified by trainer_args
+        ta.model.to(ta.device)
         ta.model.train()
         running_loss, total_batch = 0.0, 0
 

@@ -38,6 +38,7 @@ yaml_folder_data_distribution_files:
 - qmnist_one_label.yaml: qmnist_one_label
 - kmnist_one_label.yaml: kmnist_one_label
 - kmnist_long_tail.yaml: kmnist_long_tail
+- kmnist_feature_shift.yaml: kmnist_feature_shift
 
 yaml_folder_loss_func_files:
 - cross_entropy.yaml: cross_entropy
@@ -106,14 +107,13 @@ yaml_folder_rank_distribution_files:
 - rank006.yaml: rank_distribution_006_homogeneous
 - rank007.yaml: rank_distribution_007_homogeneous
 - rank1.yaml: rank_distribution_1_heterogeneous
-- rank1_to_01.yaml: rank_distribution_1_to_01_heterogeneous
 
 yaml_combination:
   runner:
   - general_round60
   - training_logger
   - fl_nodes
-  - zp_runner_strategy
+  - rbla_runner_strategy
   client_yaml:
   - general_round60
   - training_logger
@@ -122,8 +122,8 @@ yaml_combination:
   - cross_entropy
   - sgd
   - training_epoch1
-  - kmnist_long_tail
-  - zp_client_strategy
+  - kmnist_feature_shift
+  - rbla_client_strategy
   - trainer_adalora
   edge_yaml: []
   server_yaml:
@@ -134,11 +134,10 @@ yaml_combination:
   - cross_entropy
   - sgd
   - training_epoch1
-  - kmnist_long_tail
+  - kmnist_feature_shift
   - trainer_adalora
   - client_selection_random
-  - zp_server_strategy
-  - aggregation_zp
+  - rbla_server_strategy
+  - aggregation_rbla
   - rank_distribution_1_heterogeneous
   - base_lora_inference_mode
-

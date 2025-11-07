@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Init startup path, change current path to startup python file folder 
+# Init startup path, change current path to startup python file folder
 #-----------------------------------------------------------------
 import os
 from startup_init import startup_init_path
@@ -17,11 +17,12 @@ from fl_lora_sample.lora_sample_entry_feature_shift import SampleAppEntry
 
 g_app = SampleAppEntry()
 
+
 def main():
-    # Load app config set from yaml file
-    # LoRA + KMNIST(feature-shift) + SVD aggregation (60 rounds)
-    g_app.load_app_config("./fl_lora_sample/convergence_experiment/additional_fmnist/nonlora_one_label_zp_round120_epoch1.yaml")
-    # g_app.load_app_config("./fl_lora_sample/convergence_experiment/mnist_fedavg_cuda_config.yaml")
+    # Load app config set from yaml file (KMNIST + AdaLoRA + RBLA + feature-shift)
+    g_app.load_app_config(
+        "./fl_lora_sample/convergence_experiment/adalora_qmnist/adalora_feature_shift_svd_r1_round60_epoch1.yaml"
+    )
 
     # Get training rounds (allow override via env for quick tests)
     training_rounds = g_app.training_rounds
@@ -49,21 +50,22 @@ def main():
     g_app.run(device, training_rounds)
     return
 
+
 if __name__ == "__main__":
     #Initial console options
     console.set_log_level("all")  # Log level: error > warn > ok > info > out > all
     console.set_debug(True)  # True for display debug info
 
     # Set log path and name if needed
-    console.set_console_logger(log_path="./log/", log_name = "console_trace")
-    console.set_exception_logger(log_path="./log/", log_name = "exception_trace")
-    console.set_debug_logger(log_path="./log/", log_name = "debug_trace")
+    console.set_console_logger(log_path="./log/", log_name="console_trace")
+    console.set_exception_logger(log_path="./log/", log_name="exception_trace")
+    console.set_debug_logger(log_path="./log/", log_name="debug_trace")
 
     console.enable_console_log(True)  # True for log console info to file by log level
     console.enable_exception_log(True)  # True for log exception info to file
     console.enable_debug_log(True)  # True for log debug info to file
 
-    console.out("Simple FL program")
+    console.out("Simple FL program (feature-shift)")
     console.out("======================= PROGRAM BEGIN ==========================")
     main()
     console.out("\n======================= PROGRAM END ============================")

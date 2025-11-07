@@ -5,6 +5,7 @@ from typing import Dict
 import torch
 
 from ...ml_utils import console
+import os
 from ...ml_algorithms.lora.lora_utils import LoRAUtils
 from ..hub import get_hub
 
@@ -111,11 +112,109 @@ def patch_train_step_rank_snapshot() -> None:
                         "r_eff": int(r_eff),
                     }
                 )
+
+            # Optional: dump current client's LoRA matrices per layer at epoch end
+            try:
+                do_dump = bool(cfg.get("dump_matrices", False))
+            except Exception:
+                do_dump = False
+            if do_dump:
+                _dump_client_lora_matrices(model, role=role, node_id=str(node_id), round_idx=round_idx, epoch_idx=epoch_idx)
         except Exception:
             pass
         return loss
 
     _patch_method(ModelTrainer_Standard, "train_step", _train_step_wrapper)
+
+
+def _dump_client_lora_matrices(model: "nn.Module", *, role: str, node_id: str, round_idx: int, epoch_idx: int) -> None:
+    """Dump LoRA A/B and composed W matrices for the client's current model at epoch end.
+
+    Output directory: ./.monitor/<run_id>/matrices/train/<role>_<node_id>/round_<r>/epoch_<e>/<prefix>/
+    Saves: A.csv, B.csv, W.csv (when computable) and shapes.txt
+    """
+    hub = get_hub()
+    if hub is None:
+        return
+    try:
+        sd = model.state_dict()
+        out_root = getattr(hub, "_current_out_dir", hub.cfg.dir)
+        base_dir = os.path.join(out_root, "matrices", "train", f"{role}_{node_id}", f"round_{round_idx:03d}", f"epoch_{epoch_idx:03d}")
+        os.makedirs(base_dir, exist_ok=True)
+
+        # Collect PEFT-style A/B pairs by logical prefix
+        pairs: Dict[str, Dict[str, str]] = {}
+        for k in sd.keys():
+            if not isinstance(k, str):
+                continue
+            ks = k
+            # normalize by removing leading base_model.model.
+            if ks.startswith("base_model.model."):
+                ks = ks[len("base_model.model."):]
+            # detect A/B
+            if (".lora_A" in ks) or ks.endswith("lora_A"):
+                p = ks.split(".lora_A", 1)[0] if ".lora_A" in ks else ks[: -len("lora_A") - 1]
+                if p.endswith(".base_layer"):
+                    p = p[: -len(".base_layer")]
+                pairs.setdefault(p, {})["A"] = k
+            elif (".lora_B" in ks) or ks.endswith("lora_B"):
+                p = ks.split(".lora_B", 1)[0] if ".lora_B" in ks else ks[: -len("lora_B") - 1]
+                if p.endswith(".base_layer"):
+                    p = p[: -len(".base_layer")]
+                pairs.setdefault(p, {})["B"] = k
+
+        import torch
+        for pref, ks in pairs.items():
+            if "A" not in ks or "B" not in ks:
+                continue
+            A = sd.get(ks["A"], None)
+            B = sd.get(ks["B"], None)
+            if not (torch.is_tensor(A) and torch.is_tensor(B)):
+                continue
+
+            # Compute W with shape inference
+            W = None
+            try:
+                if A.dim() == 2 and B.dim() == 2:
+                    if int(A.shape[0]) == int(B.shape[1]):
+                        W = B @ A
+                    elif int(A.shape[1]) == int(B.shape[0]):
+                        W = A @ B
+            except Exception:
+                W = None
+
+            # Prepare prefix folder
+            safe_pref = pref.replace("/", "_").replace("\\", "_").replace(".", "__")
+            pdir = os.path.join(base_dir, safe_pref)
+            os.makedirs(pdir, exist_ok=True)
+
+            def _save_csv(t: torch.Tensor, path: str) -> None:
+                try:
+                    try:
+                        import numpy as _np  # type: ignore
+                        arr = t.detach().cpu().to(dtype=torch.float32).numpy()
+                        if arr.ndim == 1:
+                            arr = arr.reshape(1, -1)
+                        _np.savetxt(path, arr, delimiter=",", fmt="%.6f")
+                    except Exception:
+                        torch.save(t.detach().cpu().to(dtype=torch.float32), path + ".pt")
+                except Exception:
+                    pass
+
+            _save_csv(A, os.path.join(pdir, "A.csv"))
+            _save_csv(B, os.path.join(pdir, "B.csv"))
+            if W is not None and W.dim() == 2:
+                _save_csv(W, os.path.join(pdir, "W.csv"))
+            try:
+                with open(os.path.join(pdir, "shapes.txt"), "w", encoding="utf-8") as f:
+                    f.write(f"A: {tuple(A.shape)}\n")
+                    f.write(f"B: {tuple(B.shape)}\n")
+                    if W is not None:
+                        f.write(f"W: {tuple(W.shape)}\n")
+            except Exception:
+                pass
+    except Exception as e:
+        console.warn(f"[monitor] dump client matrices failed: {e}")
 
 
 def patch_broadcast_pad_slice_counters() -> None:

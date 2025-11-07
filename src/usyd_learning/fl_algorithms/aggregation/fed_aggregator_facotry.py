@@ -31,6 +31,10 @@ class FedAggregatorFactory:
                 from .methods._fed_aggregator_rbla import FedAggregator_RBLA
                 print("Using RBLA aggregator")
                 return FedAggregator_RBLA(args)
+            case "rbla_hetero":
+                from .methods._fed_aggregator_rbla_hetero import FedAggregator_RBLA_HET
+                print("Using RBLA-HET (heterogeneous LoRA) aggregator")
+                return FedAggregator_RBLA_HET(args)
             case "sp":
                 from .methods._fed_aggregator_sp import FedAggregator_SP
                 print("Using Sum-Product aggregator")

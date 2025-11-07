@@ -86,28 +86,40 @@ class FedAggregator_ZeroPad(AbstractFedAggregator):
     @staticmethod
     def pad_tensors_to_max_shape(tensors: list[torch.Tensor]) -> torch.Tensor:
         """
-        Pad 2D tensors to a common shape with zeros; return stacked 3D tensor: (N, max_rows, max_cols).
-        Used for LoRA matrices where row/col mismatch comes from rank differences.
+        Pad 1D/2D tensors to a common shape with zeros; return stacked tensor with leading dim N.
+        - 1D inputs -> shape (N, max_len)
+        - 2D inputs -> shape (N, max_rows, max_cols)
+        Used primarily for LoRA matrices where row/col mismatch comes from rank differences,
+        and for LoRA-related auxiliary vectors (e.g., rank masks) under heterogeneous ranks.
         """
         if len(tensors) == 0:
             raise ValueError("pad_tensors_to_max_shape: empty tensor list")
 
         # Ensure 2D for LoRA matrices
-        for t in tensors:
-            if t.dim() != 2:
-                raise ValueError(f"LoRA tensor must be 2D, got {t.dim()}D for shape {tuple(t.shape)}")
+        dim = tensors[0].dim()
+        if dim not in (1, 2):
+            raise ValueError(f"pad_tensors_to_max_shape supports 1D/2D, got {dim}D")
 
-        max_rows = max(t.shape[0] for t in tensors)
-        max_cols = max(t.shape[1] for t in tensors)
         device = tensors[0].device
         dtype = tensors[0].dtype
 
-        padded_list = []
-        for t in tensors:
-            pad = torch.zeros((max_rows, max_cols), dtype=dtype, device=device)
-            pad[: t.shape[0], : t.shape[1]] = t
-            padded_list.append(pad)
-        return torch.stack(padded_list, dim=0)
+        if dim == 1:
+            max_len = max(int(t.shape[0]) for t in tensors)
+            padded = []
+            for t in tensors:
+                pad = torch.zeros((max_len,), dtype=dtype, device=device)
+                pad[: t.shape[0]] = t
+                padded.append(pad)
+            return torch.stack(padded, dim=0)
+        else:
+            max_rows = max(t.shape[0] for t in tensors)
+            max_cols = max(t.shape[1] for t in tensors)
+            padded_list = []
+            for t in tensors:
+                pad = torch.zeros((max_rows, max_cols), dtype=dtype, device=device)
+                pad[: t.shape[0], : t.shape[1]] = t
+                padded_list.append(pad)
+            return torch.stack(padded_list, dim=0)
 
     @staticmethod
     def aggregate_lora_tensors(
@@ -160,11 +172,42 @@ class FedAggregator_ZeroPad(AbstractFedAggregator):
                 elif ".lora_B" in key:
                     suffix = "lora_B"
 
+            # Special-case LoRA-related auxiliary vectors that vary with rank across clients
+            # e.g., '<prefix>.rank_mask' (1D of length r)
+            if suffix in ("rank_mask",):
+                # Normalize weights to sum=1
+                tw = float(sum(weights))
+                w_norm = [w / tw for w in weights] if tw > 0 else [1.0 / len(weights)] * len(weights)
+                # Right-pad vectors to max length
+                if any(v.dim() != 1 for v in values):
+                    raise ValueError(f"rank_mask expected 1D tensors, got {[tuple(v.shape) for v in values]}")
+                stacked = FedAggregator_ZeroPad.pad_tensors_to_max_shape(values)  # (N, Lmax)
+                wt = torch.as_tensor(w_norm, dtype=stacked.dtype, device=stacked.device).view(len(w_norm), 1)
+                aggregated[key] = (stacked * wt).sum(dim=0)
+                continue
+
             if suffix in lora_suffixes:
                 aggregated[key] = FedAggregator_ZeroPad.aggregate_lora_tensors(values, weights)
             else:
                 # Generic weighted average for non-LoRA params
-                stacked = torch.stack(values, dim=0)  # (N, ...)
+                # If shapes mismatch (common for LoRA-related side tensors), zero-pad to max shape first.
+                same_shape = all(tuple(values[0].shape) == tuple(v.shape) for v in values)
+                if same_shape:
+                    stacked = torch.stack(values, dim=0)  # (N, ...)
+                else:
+                    dims = {int(v.dim()) for v in values}
+                    # Allow mix of scalars (0D) and vectors (1D): upcast scalars to 1D then pad
+                    if dims.issubset({0, 1}):
+                        vecs = [v.view(1) if v.dim() == 0 else v for v in values]
+                        stacked = FedAggregator_ZeroPad.pad_tensors_to_max_shape(vecs)
+                    # Allow uniform 1D or uniform 2D: pad to max
+                    elif (len(dims) == 1) and (next(iter(dims)) in (1, 2)):
+                        stacked = FedAggregator_ZeroPad.pad_tensors_to_max_shape(values)
+                    else:
+                        raise RuntimeError(
+                            f"Cannot aggregate key '{key}' with mismatched shapes/dims: "
+                            f"shapes={[tuple(v.shape) for v in values]}, dims={sorted(dims)}"
+                        )
                 view_shape = (len(weights),) + (1,) * (stacked.dim() - 1)
                 weight_tensor = torch.as_tensor(weights, dtype=stacked.dtype, device=stacked.device).view(*view_shape)
                 weighted_sum = (stacked * weight_tensor).sum(dim=0)

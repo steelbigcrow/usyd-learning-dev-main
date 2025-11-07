@@ -21,7 +21,8 @@ class NNModel_SimpleMLP(NNModel):
 
     #override
     def forward(self, x):
-        x = x.view(-1, x.shape[1] * x.shape[-2] * x.shape[-1])
+        # Flatten input to [B, D] regardless of incoming shape (already-flat or NCHW)
+        x = x.view(x.size(0), -1)
         x = self._layer_input(x)
         x = self._dropout(x)
         x = self._relu(x)
