@@ -227,6 +227,8 @@ LoRA 数据集子目录共有 4 个：
 
 说明：本计划与配置文件的文件夹结构完全一致（4 个数据集 × 3 种策略 × 2 种 Rank = 24 个阶段）。每个阶段包含 3 种数据分布任务（feature_shift、long_tail、one_label）。完成后，请在本文件中将对应的复选框由 `[ ]` 改为 `[x]` 进行标记。
 
+提醒：如果某个阶段的训练文件已经存在，那么就不需要重新跑这个阶段的训练了。
+
 阶段 01：`lora_fmnist / RBLA / Heterogeneous Rank`
 - [ ] feature_shift -> `rbla_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
 - [ ] long_tail    -> `rbla_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`

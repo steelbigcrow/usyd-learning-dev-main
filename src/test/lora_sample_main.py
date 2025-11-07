@@ -21,7 +21,7 @@ def main():
     # Load app config set from yaml file
     # Use MNIST ZP non-IID (one label per client) with homogeneous rank
     g_app.load_app_config(
-        "./fl_lora_sample/convergence_experiment/lora_mnist/ZP/Homogeneous Rank/zp_mnist_one_label_homogeneous_round250_epoch1.yaml"
+        "./fl_lora_sample/convergence_experiment/lora_fmnist/RBLA/Heterogeneous Rank/rbla_fmnist_one_label_heterogeneous_round250_epoch1.yaml"
     )
 
     # Get training rounds (allow override via env for quick tests)

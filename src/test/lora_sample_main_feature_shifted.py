@@ -23,7 +23,7 @@ def main():
     # Load app config set from yaml file
     # Use MNIST ZP feature shift with homogeneous rank
     g_app.load_app_config(
-        "./fl_lora_sample/convergence_experiment/lora_mnist/ZP/Homogeneous Rank/zp_mnist_feature_shift_homogeneous_round60_epoch1.yaml"
+        "./fl_lora_sample/convergence_experiment/lora_fmnist/RBLA/Heterogeneous Rank/rbla_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml"
     )
 
     # Get training rounds (allow override via env for quick tests)
