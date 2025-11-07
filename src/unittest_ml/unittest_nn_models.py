@@ -115,7 +115,16 @@ def main():
     except Exception as e:
         print("[FAIL] roberta_base_seqcls:", e)
 
-
+    # 8) lenet
+    args = NNModelFactory.create_args(config)
+    args.model_type = "lenet"        
+    args.in_channels = 1              
+    args.num_classes = 10
+    model = NNModelFactory.create(args)
+    x = torch.randn(2, 1, 28, 28)     
+    with torch.no_grad():
+        out = model(x)
+    print("[OK] lenet forward ->", out.shape)
 
 
 if __name__ == "__main__":

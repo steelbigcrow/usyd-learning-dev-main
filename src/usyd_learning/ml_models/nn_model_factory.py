@@ -58,5 +58,8 @@ class NNModelFactory:
             case "resnet18":
                 from .models._nn_model_resnet18 import NNModel_ResNet18
                 return NNModel_ResNet18().create_model(args)
+            case "lenet":
+                from .models._nn_model_lenet import NNModel_LeNet
+                return NNModel_LeNet().create_model(args)
 
         raise ValueError(f"Unknown mode type '{args.model_type}'")
