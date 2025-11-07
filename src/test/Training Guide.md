@@ -254,8 +254,8 @@ LoRA 数据集子目录共有 4 个：
 - [ ] 阶段完成
 
 阶段 05：`lora_fmnist / ZP / Heterogeneous Rank`
-- [ ] feature_shift -> `zp_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
-- [ ] long_tail    -> `zp_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`
+- [x] feature_shift -> `zp_fmnist_feature_shift_heterogeneous_round60_epoch1.yaml`
+- [x] long_tail    -> `zp_fmnist_long_tail_heterogeneous_round60_epoch1.yaml`
 - [ ] one_label    -> `zp_fmnist_one_label_heterogeneous_round250_epoch1.yaml`
 - [ ] 阶段完成
 
