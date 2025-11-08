@@ -8,17 +8,17 @@ _SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if _SRC_DIR not in sys.path:
     sys.path.append(_SRC_DIR)
 
-from integration_test.common.utils import ensure_startup, run_scenario_skewed
+from integration_test.common.utils import ensure_startup, run_scenario
 from usyd_learning.ml_utils.model_utils import ModelUtils
 
 
-class TestAdaLoRAZPSkewedIntegration(unittest.TestCase):
-    def test_adalora_zp_skewed_end_to_end(self):
+class TestAdaLoRAZPFeatureShiftIntegration(unittest.TestCase):
+    def test_adalora_zp_feature_shift_end_to_end(self):
         ensure_startup(__file__)
 
-        cfg = os.path.abspath(os.path.join(os.path.dirname(__file__), "adalora_zp_skewed.yaml"))
+        cfg = os.path.abspath(os.path.join(os.path.dirname(__file__), "adalora_zp_feature_shift.yaml"))
         device = ModelUtils.accelerator_device()
-        app, runner, server_var = run_scenario_skewed(cfg, rounds=1, device=device)
+        app, runner, server_var = run_scenario(cfg, rounds=1, device=device)
 
         # Aggregator method is Zero-Pad (zp)
         self.assertIsNotNone(server_var.aggregation_method)
@@ -38,4 +38,3 @@ class TestAdaLoRAZPSkewedIntegration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
