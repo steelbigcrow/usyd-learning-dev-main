@@ -161,6 +161,52 @@ class SampleAppEntry(AppEntry):
 
         return
 
+    # Internal helper for unit tests: allocate feature-shifted data to clients
+    # Given a base loader and optional client-by-class counts matrix, try the
+    # explicit counts path first, and fall back to an even split across
+    # clients when counts are not provided or invalid.
+    def _allocate_feature_shifted_data(
+        self,
+        base_loader,
+        counts,
+        num_clients: int,
+        loader_factory,
+    ):
+        partitioner = FeatureShiftedPartitioner(base_loader.data_loader)
+        part_args = FeatureShiftedArgs(
+            batch_size=64, shuffle=True, num_workers=0, return_loaders=False
+        )
+
+        allocated = None
+        try:
+            if isinstance(counts, list) and counts and isinstance(counts[0], list):
+                allocated = partitioner.partition_from_counts(counts, part_args)
+        except Exception:
+            allocated = None
+
+        if allocated is None:
+            allocated = partitioner.partition_evenly(num_clients, part_args)
+
+        # Wrap each allocated dataset using provided factory
+        for i in range(len(allocated)):
+            args = DatasetLoaderArgs(
+                {
+                    "name": "custom",
+                    "root": "../../../.dataset",
+                    "split": "",
+                    "batch_size": 64,
+                    "shuffle": True,
+                    "num_workers": 0,
+                    "is_download": True,
+                    "is_load_train_set": True,
+                    "is_load_test_set": True,
+                    "dataset": allocated[i],
+                }
+            )
+            allocated[i] = loader_factory.create(args)
+
+        return allocated
+
     # Attach events to node variable object
     def __attach_event_handler(self, node_var):
         node_var.attach_event("on_prepare_data_loader", self.on_prepare_data_loader)

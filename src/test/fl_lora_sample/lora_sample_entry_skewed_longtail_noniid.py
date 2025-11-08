@@ -135,6 +135,35 @@ class SampleAppEntry(AppEntry):
 
         return
 
+    # Internal helper for unit tests: allocate skewed-longtail non-IID data
+    # Given a base loader and a client-by-class counts matrix, partition the
+    # base dataset and wrap each partition with the provided loader factory.
+    def _allocate_skewed_data(self, base_loader, counts, loader_factory):
+        partitioner = SkewedLongtailPartitioner(base_loader.data_loader)
+        part_args = SkewedLongtailArgs(
+            batch_size=64, shuffle=True, num_workers=0, return_loaders=False
+        )
+
+        allocated = partitioner.partition(counts, part_args)
+        for i in range(len(allocated)):
+            args = DatasetLoaderArgs(
+                {
+                    "name": "custom",
+                    "root": "../../../.dataset",
+                    "split": "",
+                    "batch_size": 64,
+                    "shuffle": True,
+                    "num_workers": 0,
+                    "is_download": True,
+                    "is_load_train_set": True,
+                    "is_load_test_set": True,
+                    "dataset": allocated[i],
+                }
+            )
+            allocated[i] = loader_factory.create(args)
+
+        return allocated
+
     # Attach events to node variable object
     def __attach_event_handler(self, node_var):
         node_var.attach_event("on_prepare_data_loader", self.on_prepare_data_loader)
