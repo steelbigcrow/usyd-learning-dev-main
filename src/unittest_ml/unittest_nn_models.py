@@ -126,6 +126,83 @@ def main():
         out = model(x)
     print("[OK] lenet forward ->", out.shape)
 
+    # 9) resnet9
+    args = NNModelFactory.create_args(config)
+    args.model_type = "resnet9"
+    args.in_channels = 3
+    args.num_classes = 10
+    model = NNModelFactory.create(args)
+    x = torch.randn(2, 3, 32, 32)
+    with torch.no_grad():
+        out = model(x)
+    print("[OK] resnet9 forward ->", out.shape)
+
+    # 10) squeezenet1_1
+    args = NNModelFactory.create_args(config)
+    args.model_type = "squeezenet1_1"
+    args.num_classes = 10
+    args.pretrained = False
+    model = NNModelFactory.create(args)
+    x = torch.randn(2, 3, 224, 224)
+    with torch.no_grad():
+        out = model(x)
+    print("[OK] squeezenet1_1 forward ->", out.shape)
+
+    # 11) lstm
+    try:
+        args = NNModelFactory.create_args(config)
+        args.model_type = "lstm"
+        args.vocab_size = 10000
+        args.embedding_dim = 128
+        args.hidden_dim = 256
+        args.num_classes = 2
+        model = NNModelFactory.create(args)
+        x = torch.randint(0, 10000, (2, 256))  # (batch_size, seq_len)
+        with torch.no_grad():
+            out = model(x)
+        print("[OK] lstm forward ->", out.shape)
+    except Exception as e:
+        print("[FAIL] lstm:", e)
+
+    # 12) textcnn
+    try:
+        args = NNModelFactory.create_args(config)
+        args.model_type = "textcnn"
+        args.vocab_size = 10000
+        args.embedding_dim = 128
+        args.num_classes = 2
+        model = NNModelFactory.create(args)
+        x = torch.randint(0, 10000, (2, 256))  # (batch_size, seq_len)
+        with torch.no_grad():
+            out = model(x)
+        print("[OK] textcnn forward ->", out.shape)
+    except Exception as e:
+        print("[FAIL] textcnn:", e)
+
+    # 13) distilbert
+    try:
+        from transformers import AutoTokenizer, logging
+        logging.set_verbosity_error()
+        tok = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+        batch = tok(
+            ["dummy 1", "dummy 2"],
+            padding="max_length",
+            truncation=True,
+            max_length=16,
+            return_tensors="pt",
+        )
+        args = NNModelFactory.create_args(config)
+        args.model_type = "distilbert"
+        args.num_classes = 2
+        model = NNModelFactory.create(args)
+        with torch.no_grad():
+            out = model(batch)
+        print("[OK] distilbert forward ->", out.shape)
+    except ImportError as e:
+        print("[SKIP] distilbert: transformers not installed")
+    except Exception as e:
+        print("[FAIL] distilbert:", e)
+
 
 if __name__ == "__main__":
     main()

@@ -118,6 +118,18 @@ class DatasetLoaderFactory:
             case "usps":
                 from .loader._dataset_loader_usps import DatasetLoader_USPS
                 return DatasetLoader_USPS().create(data_loader_args, fn)
+            case "sst2":
+                from .loader._dataset_loader_sst2 import DatasetLoader_SST2
+                return DatasetLoader_SST2().create(data_loader_args, fn)
+            case "eurosat":
+                from .loader._dataset_loader_eurosat import DatasetLoader_EuroSAT
+                return DatasetLoader_EuroSAT().create(data_loader_args, fn)
+            case "subj":
+                from .loader._dataset_loader_subj import DatasetLoader_SUBJ
+                return DatasetLoader_SUBJ().create(data_loader_args, fn)
+            case "trec6":
+                from .loader._dataset_loader_trec6 import DatasetLoader_TREC6
+                return DatasetLoader_TREC6().create(data_loader_args, fn)
 
      
         raise ValueError(f"Datasdet type '{data_loader_args.dataset_type}' not support.")

@@ -61,5 +61,20 @@ class NNModelFactory:
             case "lenet":
                 from .models._nn_model_lenet import NNModel_LeNet
                 return NNModel_LeNet().create_model(args)
+            case "lstm":
+                from .models._nn_model_lstm import NNModel_LSTM
+                return NNModel_LSTM().create_model(args)
+            case "squeezenet1_1":
+                from .models._nn_model_squeezenet1_1 import NNModel_SqueezeNet1_1
+                return NNModel_SqueezeNet1_1().create_model(args)
+            case "distilbert":
+                from .models._nn_model_distilbert import NNModel_DistilBERT
+                return NNModel_DistilBERT().create_model(args)
+            case "textcnn":
+                from .models._nn_model_textcnn import NNModel_TextCNN
+                return NNModel_TextCNN().create_model(args)
+            case "resnet9":
+                from .models._nn_model_resnet9 import NNModel_ResNet9
+                return NNModel_ResNet9().create_model(args)
 
         raise ValueError(f"Unknown mode type '{args.model_type}'")
