@@ -1,0 +1,15 @@
+#-----------------------------
+#define globle NN Model and paras
+#-----------------------------
+nn_model:
+  name: simple_special_lora_mlp
+  input_dim: 0
+  hidden_dim: 0
+  output_dim: 0
+  softmax_dim: 1
+  lora_mode: standard
+  share_model: False
+
+  # Model specific knobs consumed in NNModel_SimpleSpecialLoRAMLP
+  lora_scaling: 1.0
+  use_bias: true

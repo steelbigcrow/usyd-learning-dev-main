@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Sequence
 
 import torch
 from torch.utils.data import DataLoader
 
 from ...ml_data_loader import CustomDataset
-from .skewed_longtail_spec import SkewedLongtailSpec, SparseSpec
 
 
 @dataclass
@@ -22,11 +21,11 @@ class SkewedLongtailArgs:
 
 class SkewedLongtailPartitioner:
     """
-    Standalone skewed long-tail non-IID partitioner.
+    Standalone skewed long-tail non-IID partitioner (count-matrix driven).
 
-    This class decouples from existing non-IID implementations and uses only
-    lightweight utilities (CustomDataset) to form outputs compatible with the
-    rest of the codebase without introducing tight coupling.
+    This refactor removes the separate "spec" layer and expects an explicit
+    client-by-class integer matrix (typically from YAML). The partitioner
+    allocates exactly those sample counts per client/label.
     """
 
     def __init__(self, base_loader: DataLoader):
@@ -89,50 +88,48 @@ class SkewedLongtailPartitioner:
             idx_map[lbl] = idx[perm]
         return idx_map
 
-    def partition(
+    def partition_from_counts(
         self,
-        spec: SparseSpec,
+        counts: Sequence[Sequence[int]],
         args: SkewedLongtailArgs | None = None,
     ) -> List[CustomDataset] | List[DataLoader]:
         """
-        Partitions the base loader into client datasets according to a sparse
-        skewed long-tail specification.
+        Partition according to an explicit client-by-class integer count matrix.
 
-        Args:
-            spec: Sparse client->label->weight mapping.
-            args: Optional control args for output creation.
-
-        Returns:
-            List of CustomDataset or DataLoader, one per client (in order of
-            client id from 0..N-1). Clients with zero samples get an empty
-            dataset/loader to preserve positional alignment.
+        The column order is assumed to correspond to this dataset's `label_ids`
+        (typically sorted ascending).
         """
         if args is None:
             args = SkewedLongtailArgs()
 
-        # Build weights using dataset's label order, ensure client rows align
-        spec_obj = SkewedLongtailSpec(spec)
+        mat = torch.as_tensor(counts, dtype=torch.int64)
+        if mat.dim() != 2:
+            raise ValueError("counts must be 2D: [num_clients, num_labels]")
+        if mat.shape[1] != len(self.label_ids):
+            raise ValueError(
+                f"counts has {mat.shape[1]} columns but dataset exposes {len(self.label_ids)} labels"
+            )
+        if (mat < 0).any():
+            raise ValueError("counts must be non-negative")
 
-        weights, label_ids = spec_obj.to_dense_weights(
-            label_ids=self.label_ids,
-            num_clients=spec_obj.client_count(),
-        )
+        # Optional sanity: ensure we don't request more than available per label
+        avail = torch.tensor(self._available_counts(), dtype=torch.int64)
+        req = mat.sum(dim=0)
+        if (req > avail).any():
+            over_cols = (req > avail).nonzero(as_tuple=False).view(-1).tolist()
+            raise ValueError(
+                "Requested counts exceed available per label for columns: "
+                + ",".join(str(int(c)) for c in over_cols)
+            )
 
-        # Normalize per label to available counts (use entire dataset)
-        counts = SkewedLongtailSpec.normalize_weights_to_counts(
-            weights, self._available_counts()
-        )
-
-        # Make per-label index pools and consume as we allocate
         lbl_to_idx = self._label_indices()
-        lbl_pos: Dict[int, int] = {lbl: 0 for lbl in label_ids}
+        lbl_pos: Dict[int, int] = {lbl: 0 for lbl in self.label_ids}
 
         client_datasets: List[CustomDataset] = []
-
-        for ci in range(weights.shape[0]):
+        for ci in range(mat.shape[0]):
             sel_indices: List[int] = []
-            for col, lbl in enumerate(label_ids):
-                k = int(counts[ci, col].item())
+            for col, lbl in enumerate(self.label_ids):
+                k = int(mat[ci, col].item())
                 if k <= 0:
                     continue
                 pool = lbl_to_idx[lbl]
@@ -147,7 +144,7 @@ class SkewedLongtailPartitioner:
                 sel_indices.extend(take.tolist())
 
             if len(sel_indices) == 0:
-                # Return an empty dataset placeholder to keep alignment
+                # Keep alignment: return an empty dataset
                 empty_x = self.x_train[:0]
                 empty_y = self.y_train[:0]
                 ds = CustomDataset(empty_x, empty_y)
@@ -163,7 +160,6 @@ class SkewedLongtailPartitioner:
         if not args.return_loaders:
             return client_datasets
 
-        # Wrap datasets into DataLoaders
         loaders: List[DataLoader] = []
         for ds in client_datasets:
             loader = CustomDataset.create_custom_loader(
@@ -175,4 +171,12 @@ class SkewedLongtailPartitioner:
             loaders.append(loader)
 
         return loaders
+
+    # Backward-friendly API name: accept counts matrix directly
+    def partition(
+        self,
+        counts: Sequence[Sequence[int]],
+        args: SkewedLongtailArgs | None = None,
+    ) -> List[CustomDataset] | List[DataLoader]:
+        return self.partition_from_counts(counts, args=args)
 

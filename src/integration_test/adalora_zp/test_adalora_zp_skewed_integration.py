@@ -16,7 +16,7 @@ class TestAdaLoRAZPSkewedIntegration(unittest.TestCase):
     def test_adalora_zp_skewed_end_to_end(self):
         ensure_startup(__file__)
 
-        cfg = os.path.abspath(os.path.join(os.path.dirname(__file__), "adalora_zp.yaml"))
+        cfg = os.path.abspath(os.path.join(os.path.dirname(__file__), "adalora_zp_skewed.yaml"))
         device = ModelUtils.accelerator_device()
         app, runner, server_var = run_scenario_skewed(cfg, rounds=1, device=device)
 

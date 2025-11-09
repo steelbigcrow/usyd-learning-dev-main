@@ -1,0 +1,25 @@
+#-----------------------------
+# Data distribution section
+#-----------------------------
+data_distribution:
+
+  # Use distribution name, predefined 'mnist_lt', 'mnist_lt_one_label', 'mnist_data_volum_balance',
+  # others for custom distribution from 'custom_define'
+  use: qmnist_feature_shift
+
+  # Feature shift: for n clients (default 10), evenly split each label's samples
+  # across all clients. Remainders are assigned to the last clients.
+  custom_define:
+    qmnist_feature_shift: [
+      [1089, 1239, 1095, 1120, 1064,  998, 1091, 1146, 1076, 1077],
+      [1089, 1239, 1095, 1120, 1064,  998, 1091, 1146, 1076, 1077],
+      [1089, 1240, 1095, 1120, 1064,  998, 1091, 1147, 1076, 1077],
+      [1089, 1240, 1095, 1120, 1064,  998, 1092, 1147, 1077, 1077],
+      [1089, 1240, 1095, 1120, 1064,  998, 1092, 1147, 1077, 1077],
+      [1090, 1240, 1095, 1121, 1064,  998, 1092, 1147, 1077, 1078],
+      [1090, 1240, 1095, 1121, 1064,  998, 1092, 1147, 1077, 1078],
+      [1090, 1240, 1095, 1121, 1064,  999, 1092, 1147, 1077, 1078],
+      [1090, 1240, 1096, 1121, 1064,  999, 1092, 1147, 1077, 1078],
+      [1090, 1240, 1096, 1121, 1064,  999, 1092, 1147, 1077, 1078]
+    ]
+

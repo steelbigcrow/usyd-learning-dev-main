@@ -57,25 +57,11 @@ class SkewedSampleAppEntry(SampleAppEntry):
         train_loader = server_var.data_loader  # type: ignore[attr-defined]
         base_dl = train_loader.data_loader
 
-        # Define skewed long-tail sparse spec (10 clients, 10 labels typical for MNIST)
-        # Keeping this local avoids importing demonstration.py (which prints on import).
-        client_data_distribution = {
-            0: {0: 10, 1: 10},
-            1: {0: 10, 1: 15},
-            2: {2: 20, 3: 15},
-            3: {2: 25, 3: 25},
-            4: {2: 20, 3: 20, 4: 15, 5: 10},
-            5: {2: 25, 3: 25, 4: 20, 5: 15},
-            6: {2: 25, 3: 25, 4: 25, 5: 25, 6: 30},
-            7: {2: 30, 3: 30, 4: 30, 5: 30, 6: 30, 7: 30},
-            8: {0: 15, 1: 15, 2: 30, 3: 30, 4: 30, 5: 30, 6: 30, 7: 30, 8: 60},
-            9: {0: 20, 1: 20, 2: 30, 3: 30, 4: 30, 5: 30, 6: 30, 7: 30, 8: 60, 9: 100},
-        }
-
-        # Partition using the decoupled partitioner
+        # Use the YAML-provided client-by-class count matrix prepared in server_var
         partitioner = SkewedLongtailPartitioner(base_dl)
         part_args = SkewedLongtailArgs(batch_size=64, shuffle=True, num_workers=0, return_loaders=False)
-        client_datasets = partitioner.partition(client_data_distribution, part_args)
+        counts = server_var.data_distribution  # type: ignore[attr-defined]
+        client_datasets = partitioner.partition(counts, part_args)
 
         # Wrap client datasets into DatasetLoader objects (custom)
         for i in range(len(client_datasets)):

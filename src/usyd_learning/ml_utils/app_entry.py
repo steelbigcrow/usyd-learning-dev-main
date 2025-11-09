@@ -222,8 +222,12 @@ class AppEntry(ABC, ObjectMap):
                             f"Known aliases: {sorted(yaml_map.keys())}"
                         )
 
-                    if alias == "general_round100" or alias == "general_round60" or alias == "general_round30" or alias == "general_round150" or alias == "general_round300":
-                        self.training_rounds = int(alias.split("general_round")[-1])
+                    # Infer training rounds from any alias like 'general_round<NUM>'
+                    if isinstance(alias, str) and alias.startswith("general_round"):
+                        try:
+                            self.training_rounds = int(alias.split("general_round")[-1])
+                        except Exception:
+                            pass
 
                     config_dict = ConfigLoader.load(yaml_map[alias])
                     # Shallow update keeps last-in precedence (same as before)

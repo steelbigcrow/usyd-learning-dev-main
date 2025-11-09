@@ -16,8 +16,8 @@ class AbstractFedAggregator(ABC):
     
     def __init__(self, args: FedAggregatorArgs|None = None):
         """
-        Initialize aggregator with updated weight list and aggregation method,
-        random seed is set with current time milliseconds(range in 0~999)
+        Initialize aggregator with updated weight list and aggregation method.
+        Note: Do not touch global RNG here to keep end-to-end determinism.
 
         Arg:
             aggregation_data_list(list): list of aggregation data, each element is a tuple of (model_weight: dict / wbab, vol)
@@ -41,8 +41,8 @@ class AbstractFedAggregator(ABC):
         # perform aggregation on ('cpu' or 'cuda')
         self._device = torch.device(self.args.device)
 
-        # seed range milliseconds 0~999
-        self.with_random_seed(int(time.time() * 1000) % 1000)
+        # Avoid mutating global RNG state; concrete aggregators are deterministic
+        # and do not rely on randomness.
         return
 
     @property       # aggregated weight property
@@ -53,9 +53,8 @@ class AbstractFedAggregator(ABC):
 
     def with_random_seed(self, seed: int):
         """
-        Manual set random seed, Return self
+        Kept for backward compatibility; no-op to avoid mutating global RNG.
         """
-        random.seed(seed)
         return self
 
     def with_clients_update(self, clients_update: Any):

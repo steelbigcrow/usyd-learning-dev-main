@@ -1,0 +1,98 @@
+yaml_folder_aggreation_path: ../../test/fl_lora_sample/yamls/aggregation/
+yaml_folder_client_selection_path: ../../test/fl_lora_sample/yamls/client_selection/
+yaml_folder_dataset_loader_path: ../../test/fl_lora_sample/yamls/dataset_loader/
+yaml_folder_data_distribution_path: ../../test/fl_lora_sample/yamls/data_distribution/
+yaml_folder_loss_func_path: ../../test/fl_lora_sample/yamls/loss_func/
+yaml_folder_nn_model_path: ../../test/fl_lora_sample/yamls/nn_model/
+yaml_folder_fl_nodes_path: ../../test/fl_lora_sample/yamls/fl_nodes/
+yaml_folder_optimizer_path: ../../test/fl_lora_sample/yamls/optimizer/
+yaml_folder_client_strategy_path: ../../test/fl_lora_sample/yamls/client_strategy/
+yaml_folder_server_strategy_path: ../../test/fl_lora_sample/yamls/server_strategy/
+yaml_folder_runner_strategy_path: ../../test/fl_lora_sample/yamls/runner_strategy/
+yaml_folder_trainer_path: ../../test/fl_lora_sample/yamls/trainer/
+yaml_folder_training_logger_path: ../../test/fl_lora_sample/yamls/training_logger/
+yaml_folder_training_path: ../../test/fl_lora_sample/yamls/training/
+yaml_folder_general_path: ../../test/fl_lora_sample/yamls/general
+yaml_folder_rank_distribution_path: ../../test/fl_lora_sample/yamls/rank_distribution
+
+yaml_folder_aggreation_files:
+- aggregation_svd.yaml: aggregation_svd
+
+yaml_folder_client_selection_files:
+- random.yaml: client_selection_random
+
+yaml_folder_dataset_loader_files:
+- mnist.yaml: dataset_loader_mnist
+
+yaml_folder_data_distribution_files:
+- mnist_long_tail.yaml: mnist_long_tail
+
+yaml_folder_loss_func_files:
+- cross_entropy.yaml: cross_entropy
+
+yaml_folder_nn_model_files:
+- nn_model_mnist_mlp_adalora.yaml: nn_model_mnist_mlp_adalora
+
+yaml_folder_fl_nodes_files:
+- default_10_clients.yaml: fl_nodes
+
+yaml_folder_optimizer_files:
+- sgd.yaml: sgd
+
+yaml_folder_training_files:
+- training_epoch1.yaml: training_epoch1
+
+yaml_folder_client_strategy_files:
+- svd.yaml: svd_client_strategy
+
+yaml_folder_server_strategy_files:
+- svd.yaml: svd_server_strategy
+
+yaml_folder_runner_strategy_files:
+- svd.yaml: svd_runner_strategy
+
+yaml_folder_trainer_files:
+- adalora_trainer.yaml: trainer_adalora
+
+yaml_folder_training_logger_files:
+- standard_training_logger.yaml: training_logger
+
+yaml_folder_general_files:
+- general_round30.yaml: general_round30
+
+yaml_folder_rank_distribution_files:
+- rank1.yaml: rank_distribution_1_heterogeneous
+
+yaml_combination:
+  runner:
+  - general_round30
+  - training_logger
+  - fl_nodes
+  - svd_runner_strategy
+  client_yaml:
+  - general_round30
+  - training_logger
+  - dataset_loader_mnist
+  - nn_model_mnist_mlp_adalora
+  - cross_entropy
+  - sgd
+  - training_epoch1
+  - mnist_long_tail
+  - svd_client_strategy
+  - trainer_adalora
+  edge_yaml: []
+  server_yaml:
+  - general_round30
+  - training_logger
+  - dataset_loader_mnist
+  - nn_model_mnist_mlp_adalora
+  - cross_entropy
+  - sgd
+  - training_epoch1
+  - mnist_long_tail
+  - trainer_adalora
+  - client_selection_random
+  - svd_server_strategy
+  - aggregation_svd
+  - rank_distribution_1_heterogeneous
+

@@ -19,6 +19,8 @@ class FedClientSelector(ABC):
             self._args = args
 
         self._clients_data_dict: dict = {}          # Client data dictionary
+        # Use a local RNG to avoid interference from unrelated global seeding.
+        self._rng = random.Random()
         if args is not None:
             self.with_random_seed(args.random_seed)
         return
@@ -34,12 +36,13 @@ class FedClientSelector(ABC):
 
     def with_random_seed(self, seed: int = -1):
         """
-        Manual set random seed, -1 means random seed generate by time
+        Seed the selector's private RNG. When seed<=0, derive a small time-based seed.
+        Does not mutate the global random module.
         """
         if seed <= 0:
             dt = datetime.datetime.now()
             seed = dt.microsecond % 1000        # range: 0~999
-        random.seed(int(seed * 1000) % 1000)
+        self._rng.seed(int(seed * 1000) % 1000)
         return self
 
     def with_clients_data(self, clients_data_dict: dict):

@@ -26,6 +26,19 @@ class SampleAppEntry(AppEntry):
     # override
     def run(self, device: str = "cpu", training_rounds: int = 50):
 
+        # Set deterministic seeds early (before any model/data construction)
+        try:
+            import random
+            import numpy as np
+            import torch
+            random.seed(42)
+            np.random.seed(42)
+            torch.manual_seed(42)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(42)
+        except Exception:
+            pass
+
         # Yamls - if yamls are None, get yaml from app config file automatically
         if self.runner_yaml is None:
             self.runner_yaml = self.get_app_object("runner")
@@ -57,31 +70,20 @@ class SampleAppEntry(AppEntry):
         # Load data
         train_loader = server_var.data_loader
 
-        # NonIID handler (decoupled): build a skewed long-tail spec from the parsed
-        # data_distribution matrix and use the standalone partitioner.
-        # Convert dense matrix (clients x labels) into sparse spec {client: {label: weight}}
-        dist_matrix = server_var.data_distribution
-        sparse_spec: dict[int, dict[int, float]] = {}
-        if isinstance(dist_matrix, list):
-            for ci, row in enumerate(dist_matrix):
-                row_map: dict[int, float] = {}
-                for lbl, v in enumerate(row):
-                    try:
-                        val = float(v)
-                    except Exception:
-                        continue
-                    if val > 0:
-                        row_map[int(lbl)] = val
-                sparse_spec[int(ci)] = row_map
-        else:
-            sparse_spec = {}
-
-        # Partition base loader using skewed spec; return CustomDatasets
+        # Non-IID handler (decoupled): use the YAML-provided count matrix directly
+        counts = server_var.data_distribution
+        # Partition base loader using explicit counts; return CustomDatasets
         partitioner = SkewedLongtailPartitioner(train_loader.data_loader)
         part_args = SkewedLongtailArgs(
             batch_size=64, shuffle=True, num_workers=0, return_loaders=False
         )
-        allocated_noniid_data = partitioner.partition(sparse_spec, part_args)
+        # Skewed-longtail uses explicit counts; ensure any internal randomness is seeded
+        try:
+            import torch as _torch
+            _torch.manual_seed(42)
+        except Exception:
+            pass
+        allocated_noniid_data = partitioner.partition(counts, part_args)
 
         for i in range(len(allocated_noniid_data)):
             args = DatasetLoaderArgs(
@@ -122,9 +124,45 @@ class SampleAppEntry(AppEntry):
             # client_var.prepare_strategy_only()
             client_var_list.append(client_var)
 
+        # Reset RNG before training so DataLoader shuffles align across runs
+        try:
+            import torch as _torch
+            _torch.manual_seed(42)
+        except Exception:
+            pass
+
         self.fed_runner.run()
 
         return
+
+    # Internal helper for unit tests: allocate skewed-longtail non-IID data
+    # Given a base loader and a client-by-class counts matrix, partition the
+    # base dataset and wrap each partition with the provided loader factory.
+    def _allocate_skewed_data(self, base_loader, counts, loader_factory):
+        partitioner = SkewedLongtailPartitioner(base_loader.data_loader)
+        part_args = SkewedLongtailArgs(
+            batch_size=64, shuffle=True, num_workers=0, return_loaders=False
+        )
+
+        allocated = partitioner.partition(counts, part_args)
+        for i in range(len(allocated)):
+            args = DatasetLoaderArgs(
+                {
+                    "name": "custom",
+                    "root": "../../../.dataset",
+                    "split": "",
+                    "batch_size": 64,
+                    "shuffle": True,
+                    "num_workers": 0,
+                    "is_download": True,
+                    "is_load_train_set": True,
+                    "is_load_test_set": True,
+                    "dataset": allocated[i],
+                }
+            )
+            allocated[i] = loader_factory.create(args)
+
+        return allocated
 
     # Attach events to node variable object
     def __attach_event_handler(self, node_var):

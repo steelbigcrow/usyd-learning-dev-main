@@ -12,7 +12,6 @@ startup_init_path(os.path.dirname(os.path.abspath(__file__)))
 from usyd_learning.fl_algorithms.skewed_longtail_noniid import (
     SkewedLongtailPartitioner,
     SkewedLongtailArgs,
-    SkewedLongtailSpec,
 )
 
 
@@ -50,29 +49,22 @@ class TestSkewedLongtailPartitioner(unittest.TestCase):
         base = self._make_base_loader(n=120, num_labels=10)
         part = SkewedLongtailPartitioner(base)
 
-        # Sparse spec over 4 clients
-        spec = {
-            0: {0: 1.0, 1: 1.0},
-            1: {2: 2.0, 3: 1.0},
-            2: {4: 3.0, 5: 1.0, 6: 1.0},
-            3: {0: 2.0, 7: 2.0, 8: 3.0, 9: 4.0},
-        }
+        # Explicit counts over 4 clients, 10 labels. Each label appears 12 times
+        # in the synthetic dataset, so split evenly as 3 per client.
+        num_clients = 4
+        num_labels = 10
+        counts = torch.full((num_clients, num_labels), 3, dtype=torch.int64)
 
-        # Compute expected counts via the same normalize function
-        spec_obj = SkewedLongtailSpec(spec)
-        weights, label_ids = spec_obj.to_dense_weights(label_ids=part.label_ids, num_clients=spec_obj.client_count())
-        available = [int((part.y_train == lbl).sum().item()) for lbl in label_ids]
-        expected = SkewedLongtailSpec.normalize_weights_to_counts(weights, available)
+        datasets = part.partition(counts.tolist(), SkewedLongtailArgs(return_loaders=False))
+        self.assertEqual(len(datasets), num_clients)
 
-        # Partition
-        datasets = part.partition(spec, SkewedLongtailArgs(return_loaders=False))
-        self.assertEqual(len(datasets), 4)
+        # Build expected counts per client from the counts matrix
+        expected = counts
+        label_ids = part.label_ids
 
         # Check label histograms match expected counts per client
         for ci, ds in enumerate(datasets):
-            xs = torch.stack([ds[i][0] for i in range(len(ds))]) if len(ds) > 0 else torch.empty(0, dtype=torch.int64)
             ys = torch.stack([ds[i][1] for i in range(len(ds))]) if len(ds) > 0 else torch.empty(0, dtype=torch.int64)
-            # Build histogram
             hist = torch.zeros(len(label_ids), dtype=torch.int64)
             for lbl in ys.tolist():
                 hist[label_ids.index(int(lbl))] += 1
@@ -94,8 +86,14 @@ class TestSkewedLongtailPartitioner(unittest.TestCase):
     def test_partition_return_loaders(self):
         base = self._make_base_loader(n=60, num_labels=5)
         part = SkewedLongtailPartitioner(base)
-        spec = {0: {0: 1.0}, 1: {1: 1.0}, 2: {2: 1.0}, 3: {3: 1.0}, 4: {4: 1.0}}
-        loaders = part.partition(spec, SkewedLongtailArgs(batch_size=8, shuffle=True, num_workers=0, return_loaders=True))
+        counts = [
+            [12, 0, 0, 0, 0],
+            [0, 12, 0, 0, 0],
+            [0, 0, 12, 0, 0],
+            [0, 0, 0, 12, 0],
+            [0, 0, 0, 0, 12],
+        ]
+        loaders = part.partition(counts, SkewedLongtailArgs(batch_size=8, shuffle=True, num_workers=0, return_loaders=True))
         # Iterate a couple of batches from the first loader
         it = iter(loaders[0])
         try:

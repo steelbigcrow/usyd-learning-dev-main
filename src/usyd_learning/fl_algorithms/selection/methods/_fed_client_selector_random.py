@@ -25,4 +25,5 @@ class FedClientSelector_Random(FedClientSelector):
         if select_number <= 0:
             select_number = self._args.select_number
 
-        return random.sample(client_list, select_number)
+        # Use the selector's private RNG to ensure determinism and isolation
+        return self._rng.sample(client_list, select_number)
