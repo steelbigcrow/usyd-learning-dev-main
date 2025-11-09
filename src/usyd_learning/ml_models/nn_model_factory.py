@@ -49,5 +49,20 @@ class NNModelFactory:
             case "imdb_lora_transformer":
                 from .lora._nn_model_imdb_lora_transformer import NNModel_ImdbMSLoRATransformer
                 return NNModel_ImdbMSLoRATransformer().create_model(args)
+            case "distilroberta_base_seqcls":
+                from .models._nn_model_distilroberta_base_seqcls import NNModel_DistilRoBERTaBaseSeqCls
+                return NNModel_DistilRoBERTaBaseSeqCls().create_model(args)
+            case "efficientnet_b0":
+                from .models._nn_model_efficientnet_b0 import NNModel_EfficientNetB0
+                return NNModel_EfficientNetB0().create_model(args)
+            case "roberta_base_seqcls":
+                from .models._nn_model_roberta_base_seqcls import NNModel_RoBERTaBaseSeqCls
+                return NNModel_RoBERTaBaseSeqCls().create_model(args)
+            case "resnet18":
+                from .models._nn_model_resnet18 import NNModel_ResNet18
+                return NNModel_ResNet18().create_model(args)
+            case "lenet":
+                from .models._nn_model_lenet import NNModel_LeNet
+                return NNModel_LeNet().create_model(args)
 
         raise ValueError(f"Unknown mode type '{args.model_type}'")
